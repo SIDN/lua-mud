@@ -75,6 +75,7 @@ function main(args)
     if mud == nil then
         print("Error: " .. err)
     else
+        local a,b = mud:validate()
         local actions = mud:get_policy_actions(from_device, {ip_or_domain}, {ip_or_domain}, source_port, destination_port)
         if actions ~= nil then
             print("Match! Actions:")

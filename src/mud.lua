@@ -88,8 +88,8 @@ function mud:read_acls()
        self.data["ietf-mud:mud"]["from-device-policy"]["access-lists"] and
        self.data["ietf-mud:mud"]["from-device-policy"]["access-lists"]["access-list"] then
         for _,policy_acl_desc in pairs(self.data["ietf-mud:mud"]["from-device-policy"]["access-lists"]["access-list"]) do
-            local pname = policy_acl_desc["acl-name"]
-            local ptype = policy_acl_desc["acl-type"]
+            local pname = policy_acl_desc["name"]
+            local ptype = policy_acl_desc["type"]
             if self:get_acl(pname) == nil then
                 return nil, "from-device ACL named '" .. pname .. "' not defined"
             end
@@ -102,12 +102,16 @@ function mud:read_acls()
        self.data["ietf-mud:mud"]["to-device-policy"]["access-lists"] and
        self.data["ietf-mud:mud"]["to-device-policy"]["access-lists"]["access-list"] then
         for _,policy_acl_desc in pairs(self.data["ietf-mud:mud"]["to-device-policy"]["access-lists"]["access-list"]) do
-            local pname = policy_acl_desc["acl-name"]
-            local ptype = policy_acl_desc["acl-type"]
+            local pname = policy_acl_desc["name"]
+            local ptype = policy_acl_desc["type"]
             if self:get_acl(pname) == nil then
-                --return nil, "to-device ACL named '" .. pname .. "' not defined"
+                return nil, "to-device ACL named '" .. pname .. "' not defined"
             end
-            self.to_device_acls[pname] = ptype
+            if ptype == nil then
+                self.to_device_acls[pname] = ""
+            else
+                self.to_device_acls[pname] = ptype
+            end
         end
     end
 
@@ -198,6 +202,17 @@ function mud:get_to_device_acls()
     return self.to_device_acls
 end
 
+function mud:check_operator(value_to_check, value_to_match, operator)
+    if operator == "eq" then return value_to_check == value_to_match
+    elseif operator == "neq" then return value_to_check ~= value_to_match
+    elseif operator == "gt" then return value_to_check > value_to_match
+    elseif operator == "lt" then return value_to_check < value_to_match
+    else
+        return nil, "Unknown operator: " .. operator
+    end
+end
+
+
 function mud:get_policy_actions(from_device, ips, domains, from_port, to_port)
     local acls
     if from_device then
@@ -207,38 +222,24 @@ function mud:get_policy_actions(from_device, ips, domains, from_port, to_port)
     end
     for acl_name,_ in pairs(acls) do
         acl = self:get_acl(acl_name)
-        print("[XX] try " .. acl_name)
         for _,rule in pairs(acl:get_rules()) do
-            print("[XX] try rule " .. rule:get_name())
             for acl_type,acl_matches in pairs(rule:get_matches()) do
-                for match_type,match_value in pairs(acl_matches) do
-                    if match_type == "destination-port-range" then
-                        if match_value["upper_port"] == nil then
-                            -- should be True probably, after refactor
-                            if to_port == match_value["lower_port"] then
-                                print("[XX] YO, to_port = " .. to_port)
-                                return rule:get_actions()
-                            end
-                        else
-                            if to_port >= match_value["lower_port"] and
-                               to_port <= match_value["upper_port"] then
-                                return rule:get_actions()
-                            end
+                for match_type, match_value in pairs(acl_matches) do
+                    if match_type == "destination-port" then
+                        result, err = mud:check_operator(to_port, match_value["port"], match_value["operator"])
+                        if result == nil then return nil, err
+                        elseif result then
+                            return rule:get_actions()
                         end
-                    elseif match_type == "source-port-range" then
-                        if match_value["upper_port"] == nil then
-                            -- should be True probably, after refactor
-                            if from_port == match_value["lower_port"] then
-                                return rule:get_actions()
-                            end
-                        else
-                            if from_port >= match_value["lower_port"] and
-                               from_port <= match_value["upper_port"] then
-                                return rule:get_actions()
-                            end
+                    elseif match_type == "source-port" then
+                        result, err = mud:check_operator(from_port, match_value["port"], match_value["operator"])
+                        if result == nil then return nil, err
+                        elseif result then
+                            return rule:get_actions()
                         end
                     elseif match_type == "ietf-mud:direction-initiated" then
-                        -- can't really tell with the info we have
+                        -- TODO
+                        print("[TODO]: direction-initiated")
                     elseif match_type == "ietf-acldns:dst-dnsname" then
                         -- TODO
                         print("[TODO]: acldns")
@@ -287,20 +288,20 @@ end
 
 function acl:validate()
     -- the top-level element should be "acl"
-    if self.data["acl-name"] == nil then
-        return nil, "No element 'acl-name' in access control list"
+    if self.data["name"] == nil then
+        return nil, "No element 'name' in access control list"
     end
-    if self.data["acl-type"] == nil then
-        return nil, "No element 'acl-type' in access control list"
+    if self.data["type"] == nil then
+        return nil, "No element 'type' in access control list"
     end
     -- todo: check type against enum
-    local entries = self.data["access-list-entries"]
+    local entries = self.data["aces"]
     if entries == nil then
-        return nil, "No element 'access-list-entries' in access control list"
+        return nil, "No element 'aces' in access control list"
     end
     local ace = entries["ace"]
     if entries == nil then
-        return nil, "No element 'ace' in access-list-entries"
+        return nil, "No element 'ace' in aces"
     end
     for _, ace_e in pairs(ace) do
         -- todo: should this be its own object as well?
@@ -312,11 +313,11 @@ function acl:validate()
 end
 
 function acl:get_name()
-    return self.data["acl-name"]
+    return self.data["name"]
 end
 
 function acl:get_type()
-    return self.data["acl-type"]
+    return self.data["type"]
 end
 
 function acl:get_rules()
@@ -336,15 +337,15 @@ local rule = {}
 rule.__index = rule
 
 luamud.acl_types = {
-    "any-acl",
-    "mud-acl",
-    "icmp-acl",
-    "ipv6-acl",
-    "tcp-acl",
-    "any-acl",
-    "udp-acl",
-    "ipv4-acl",
-    "ipv6-acl"
+    "any",
+    "mud",
+    "icmp",
+    "ipv6",
+    "tcp",
+    "any",
+    "udp",
+    "ipv4",
+    "ipv6"
 }
 
 luamud.action_types = {
@@ -363,8 +364,8 @@ luamud.supported_match_types = {
     "ietf-acldns:src-dnsname",
     "ietf-acldns:dst-dnsname",
     "protocol",
-    "source-port-range",
-    "destination-port-range",
+    "source-port",
+    "destination-port",
 }
 
 -- Create an acl structure using raw objects (ie the json data that
@@ -383,17 +384,17 @@ function luamud.rule_create(data, rule_type)
 end
 
 function rule:validate()
-    if self.data["rule-name"] == nil then
-        return nil, "No element 'rule-name' in rule"
+    if self.data["name"] == nil then
+        return nil, "No element 'name' in rule"
     end
     if self.data["matches"] == nil then
-        return nil, "No element 'matches' in rule " .. self.data["rule-name"]
+        return nil, "No element 'matches' in rule " .. self.data["name"]
     end
     -- acl should be one of: any-acl, mud-acl, icmp-acl, ipv6-acl,
     -- tcp-acl, any-acl, udp-acl, ipv4-acl, and ipv6-acl
     for acl_type, acl_matches in pairs(self.data["matches"]) do
         if not has_value(luamud.acl_types, acl_type) then
-            return nil, "Unknown match type: " .. match_type
+            return nil, "Unknown acl type: " .. acl_type
         end
         for match_type, match_value in pairs(acl_matches) do
             if not has_value(luamud.supported_match_types, match_type) then
@@ -443,7 +444,7 @@ function rule:validate()
     -- also check for specifics in list...
 
     if self.data["actions"] == nil then
-        return nil, "No element 'actions' in rule " .. self.data["rule-name"]
+        return nil, "No element 'actions' in rule " .. self.data["name"]
     end
     for action_type, action in pairs(self.data["actions"]) do
         if not has_value(luamud.action_types, action_type) then
@@ -457,7 +458,7 @@ function rule:validate()
 end
 
 function rule:get_name()
-    return self.data["rule-name"]
+    return self.data["name"]
 end
 
 function rule:get_matches()
