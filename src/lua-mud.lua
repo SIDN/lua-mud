@@ -1,11 +1,17 @@
--- read a mud description json structure,
--- translate keywords to IP addresses
--- pass a packet to evaluate, return matches or not matches
+-- Lua Manufacturer Usage Description library
+--
+-- Author: Jelte Jansen <jelte.jansen@sidn.nl>
+-- License: GPLv3, see LICENSE for details
+
+-- This is the main module, containing the core functionality:
+-- - read a mud description json structure,
+-- - translate keywords to IP addresses
+-- - pass a packet to evaluate, return matches or not matches
 
 cjson = require 'cjson'
 
 --
--- helper functions. todo: put in util?
+-- helper functions. todo: put in an util submodule?
 --
 function has_value(tab, el)
     for _,v in pairs(tab) do
@@ -76,7 +82,6 @@ function mud:read_acls()
         if acl_entry == nil then return nil, err end
         table.insert(self.acls, acl_entry)
     end
-    print(self.data["ietf-mud:mud"]["from-device-policy"])
 
     self.from_device_acls = {}
     if self.data["ietf-mud:mud"]["from-device-policy"] and
@@ -201,42 +206,31 @@ function mud:get_policy_actions(from_device, ips, domains, from_port, to_port)
         acls = self:get_to_device_acls()
     end
     for acl_name,_ in pairs(acls) do
-        print("[XX] try acl " .. acl_name)
         acl = self:get_acl(acl_name)
         for _,rule in pairs(acl:get_rules()) do
-            print("[XX] try rule " .. rule:get_name())
-            print("[XX] rule has " .. table.getn(rule:get_matches()) .. " matches")
             for acl_type,acl_matches in pairs(rule:get_matches()) do
-                print("[XX] try r-acl " .. acl_type)
                 for match_type,match_value in pairs(acl_matches) do
-                    print("[XX] try match " .. match_type)
                     if match_type == "destination-port-range" then
-                        print("[XX] to_port: " .. to_port)
                         if match_value["upper_port"] == nil then
                             -- should be True probably, after refactor
                             if to_port == match_value["lower_port"] then
-                                print("[XX] MATCH!")
                                 return acl:get_actions()
                             end
                         else
                             if to_port >= match_value["lower_port"] and
                                to_port <= match_value["upper_port"] then
-                                print("[XX] MATCH!")
                                 return acl:get_actions()
                             end
                         end
                     elseif match_type == "source-port-range" then
-                        print("[XX] from_port: " .. from_port)
                         if match_value["upper_port"] == nil then
                             -- should be True probably, after refactor
                             if from_port == match_value["lower_port"] then
-                                print("[XX] MATCH!")
                                 return acl:get_actions()
                             end
                         else
                             if from_port >= match_value["lower_port"] and
                                from_port <= match_value["upper_port"] then
-                                print("[XX] MATCH!")
                                 return acl:get_actions()
                             end
                         end
@@ -245,7 +239,7 @@ function mud:get_policy_actions(from_device, ips, domains, from_port, to_port)
                     elseif match_type == "ietf-acldns:dst-dnsname" then
                         -- todo
                     else
-                        print("[XX] unimplemented match type: " .. match_type)
+                        print("[Error] unimplemented match type: " .. match_type)
                     end
                 end
             end
@@ -399,7 +393,6 @@ function rule:validate()
             return nil, "Unknown match type: " .. match_type
         end
         for match_type, match_value in pairs(acl_matches) do
-            print("[XX] " .. match_type)
             if not has_value(luamud.supported_match_types, match_type) then
                 return nil, "Unsupported match type: " .. match_type
             end
@@ -416,7 +409,6 @@ function rule:validate()
                     return nil, "Bad value for protocol match rule: " .. match_value
                 end
             elseif match_type == "source-port-range" then
-                print("[XX]" .. type(match_value['lower-port']))
                 -- should be a table with 'lower-port' (int, mandatory),
                 -- 'upper-port' (int, optional), and 'operation' (optional)
                 if match_value['lower-port'] == nil then
@@ -429,7 +421,6 @@ function rule:validate()
                     return nil, "Bad value for source-port-range upper-port: " .. match_value['upper-port']
                 end
             elseif match_type == "destination-port-range" then
-                print("[XX]" .. type(match_value['lower-port']))
                 -- should be a table with 'lower-port' (int, mandatory),
                 -- 'upper-port' (int, optional), and 'operation' (optional)
                 if match_value['lower-port'] == nil then
