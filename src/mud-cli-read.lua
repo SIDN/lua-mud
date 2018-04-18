@@ -15,22 +15,16 @@ function help(rcode, error_msg)
         print("Error: " .. error_msg)
         print("")
     end
-    print("Usage: lua-mud <command> <mudfile> [options]")
-    print("Commands and options:")
-    print("read:        Read <mudfile> and perform basic validation")
+    print("Usage: lua-mud-read <mudfile> [options]")
+    print("Reads <mudfile>, performs basic validation, and prints summary information")
     print("")
-    print("match:       Parse <mudfile> and match packet info")
-    print("")
-    print("General options:")
+    print("Options:")
     print("-h:          show this help")
-    print("-p:          print summary info of the parse MUD file to stdout")
     os.exit(rcode)
 end
 
 function parse_args(args)
-    local command = nil
     local mudfile = nil
-    local print_mud_summary = false
     
     -- set skip to true in the loop when encountering a flag that has
     -- an argument
@@ -40,23 +34,16 @@ function parse_args(args)
             skip = false
         elseif arg[i] == "-h" then
             help()
-        elseif arg[i] == "-p" then
-            print_mud_summary = true
         else
-            if command == nil then command = arg[i]
-            elseif mudfile == nil then mudfile = arg[i]
+            if mudfile == nil then mudfile = arg[i]
             else help(1, "Too many arguments at " .. table.getn(args))
             end
         end
     end
 
-    if command == nil then help(1, "Missing argument: <command>") end
-    if command ~= "read" and command ~= "match" then
-        help(1, "Bad command: " .. command)
-    end
     if mudfile == nil then help(1, "Missing argument: <mudfile>") end
 
-    return command, mudfile, print_mud_summary
+    return mudfile
 end
 
 function print_mud_summary(mud)
@@ -98,17 +85,13 @@ end
 -- external functions
 --
 function main(args)
-    command, mudfile, print_summary = parse_args(args)
+    mudfile = parse_args(args)
     
     local mud, err = lua_mud.mud_create_from_file(mudfile)
     if mud == nil then
         print("Error: " .. err)
     else
-        if print_summary then print_mud_summary(mud) end
-        
-        if command == "match" then
-            print("Match not implemented in CLI yet")
-        end
+        print_mud_summary(mud)
     end
 end
 

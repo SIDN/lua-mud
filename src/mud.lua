@@ -207,37 +207,41 @@ function mud:get_policy_actions(from_device, ips, domains, from_port, to_port)
     end
     for acl_name,_ in pairs(acls) do
         acl = self:get_acl(acl_name)
+        print("[XX] try " .. acl_name)
         for _,rule in pairs(acl:get_rules()) do
+            print("[XX] try rule " .. rule:get_name())
             for acl_type,acl_matches in pairs(rule:get_matches()) do
                 for match_type,match_value in pairs(acl_matches) do
                     if match_type == "destination-port-range" then
                         if match_value["upper_port"] == nil then
                             -- should be True probably, after refactor
                             if to_port == match_value["lower_port"] then
-                                return acl:get_actions()
+                                print("[XX] YO, to_port = " .. to_port)
+                                return rule:get_actions()
                             end
                         else
                             if to_port >= match_value["lower_port"] and
                                to_port <= match_value["upper_port"] then
-                                return acl:get_actions()
+                                return rule:get_actions()
                             end
                         end
                     elseif match_type == "source-port-range" then
                         if match_value["upper_port"] == nil then
                             -- should be True probably, after refactor
                             if from_port == match_value["lower_port"] then
-                                return acl:get_actions()
+                                return rule:get_actions()
                             end
                         else
                             if from_port >= match_value["lower_port"] and
                                from_port <= match_value["upper_port"] then
-                                return acl:get_actions()
+                                return rule:get_actions()
                             end
                         end
                     elseif match_type == "ietf-mud:direction-initiated" then
                         -- can't really tell with the info we have
                     elseif match_type == "ietf-acldns:dst-dnsname" then
-                        -- todo
+                        -- TODO
+                        print("[TODO]: acldns")
                     else
                         print("[Error] unimplemented match type: " .. match_type)
                     end
@@ -304,7 +308,6 @@ function acl:validate()
         if rule == nil then return nil, err end
         table.insert(self.rules, rule)
     end
-    --if self.data
     return self
 end
 

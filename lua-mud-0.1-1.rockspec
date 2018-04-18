@@ -17,10 +17,14 @@ dependencies = {
 build = {
     type = "builtin",
     modules = {
-        mud = "src/lua-mud.lua",
-        mud_cli = "src/lua-mud-cli.lua",
+        mud = "src/mud.lua",
+        mud_cli_read = "src/mud-cli-read.lua",
+        mud_cli_match = "src/mud-cli-match.lua",
     },
     install = {
-        bin = { "bin/lua-mud" }
+        bin = {
+            "bin/lua-mud-read",
+            "bin/lua-mud-match",
+        }
     },
 }
