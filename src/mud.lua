@@ -93,7 +93,11 @@ function mud:read_acls()
             if self:get_acl(pname) == nil then
                 return nil, "from-device ACL named '" .. pname .. "' not defined"
             end
-            self.from_device_acls[pname] = ptype
+            if ptype == nil then
+                self.from_device_acls[pname] = "any"
+            else
+                self.from_device_acls[pname] = ptype
+            end
         end
     end
 
@@ -108,7 +112,7 @@ function mud:read_acls()
                 return nil, "to-device ACL named '" .. pname .. "' not defined"
             end
             if ptype == nil then
-                self.to_device_acls[pname] = ""
+                self.to_device_acls[pname] = "any"
             else
                 self.to_device_acls[pname] = ptype
             end
