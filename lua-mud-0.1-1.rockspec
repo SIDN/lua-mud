@@ -1,7 +1,7 @@
 package = "lua-mud"
 version = "0.1-1"
 source = {
-    url = "git+https://github.com/SIDN/lua-mud"
+    url = "git://github.com/SIDN/lua-mud"
 }
 description = {
     summary = "A Manufacturer Usage Description (MUD) library in Lua",
