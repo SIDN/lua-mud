@@ -16,7 +16,7 @@ acl_mt = { __index = acl }
     acl_list:set_entry_element('type', yt.acl_type:create(false))
     new_inst.acls = acl_list
     new_inst.yang_elements = {}
-    new_inst.yang_elements['acl'] = acl_list
+    new_inst.yang_elements['acls'] = acl_list
     --acl_list:set_entry_element('type', yt.acl_type:create(false))
     return new_inst
   end
@@ -67,20 +67,33 @@ mud_mt = { __index = mud }
     local new_inst = {}
     setmetatable(new_inst, mud_mt)
     -- default values and types go here
-    new_inst.yang_elements = {}
-    new_inst.yang_elements['mud-version'] = yt.uint8:create()
-    new_inst.yang_elements['mud-url'] = yt.inet_uri:create()
-    new_inst.yang_elements['last-update'] = yt.yang_date_and_time:create()
-    new_inst.yang_elements['mud-signature'] = yt.inet_uri:create(false)
-    new_inst.yang_elements['cache-validity'] = yt.uint8:create(false)
-    new_inst.yang_elements['is-supported'] = yt.boolean:create()
-    new_inst.yang_elements['systeminfo'] = yt.string:create(false)
-    new_inst.yang_elements['mfg-name'] = yt.string:create(false)
-    new_inst.yang_elements['model-name'] = yt.string:create(false)
-    new_inst.yang_elements['firmware-rev'] = yt.string:create(false)
-    new_inst.yang_elements['documentation'] = yt.inet_uri:create(false)
-    new_inst.yang_elements['extensions'] = yt.notimplemented:create(false)
-    
+    local c = yt.container:create()
+    c:add_yang_element('mud-version', yt.uint8:create())
+    c:add_yang_element('mud-url', yt.inet_uri:create(true))
+    c:add_yang_element('last-update', yt.yang_date_and_time:create())
+    c:add_yang_element('mud-signature', yt.inet_uri:create(false))
+    c:add_yang_element('cache-validity', yt.uint8:create(false))
+    c:add_yang_element('is-supported', yt.boolean:create())
+    c:add_yang_element('systeminfo', yt.string:create(false))
+    c:add_yang_element('mfg-name', yt.string:create(false))
+    c:add_yang_element('model-name', yt.string:create(false))
+    c:add_yang_element('firmware-rev', yt.string:create(false))
+    c:add_yang_element('documentation', yt.inet_uri:create(false))
+    c:add_yang_element('extensions', yt.notimplemented:create(false))
+    new_inst.mud = c
+
+    local a = yt.container:create()
+    local a_l = yt.list:create()
+
+
+    a_l:set_entry_element('name', yt.string:create(true))
+    a_l:set_entry_element('type', yt.acl_type:create(false))
+    --new_inst.acls = acl_list
+    --new_inst.yang_elements = {}
+    --new_inst.yang_elements['acls'] = acl_list
+    --a:add_yang_element('acl', a_l)
+    new_inst.acls = a_l
+
     return new_inst
   end
 
@@ -101,20 +114,25 @@ mud_mt = { __index = mud }
       error("Top-level element 'ietf-mud:mud' not found in " .. json_file_name)
     end
     local mud_data = json_data['ietf-mud:mud']
-    for element_name, element in pairs(self.yang_elements) do
-      print("Trying yang element " .. element_name)
-      if mud_data[element_name] ~= nil then
-        element:setValue(mud_data[element_name])
-      elseif element:isMandatory() then
-        error('mandatory element ' .. element_name .. ' not found')
-      end
+    self.mud:fromData(mud_data)
+
+    if json_data['ietf-access-control-list:acls'] == nil then
+      error("Top-level element 'ietf-access-control-list:acls' not found in " .. json_file_name)
     end
-    --print("asdf" .. json_data)
-    self.acls = acl:create()
-    self.acls:parseJson(json_data)
+    local acls_data = json_data['ietf-access-control-list:acls']
+    print("[XX] CALLING ACLS fromData() with:")
+    print(json.encode(acls_data['acl']))
+    self.acls:fromData(acls_data['acl'])
+
+    --self.acls:parseJson(json_data)
   end
 
   function mud:print()
+    self.mud:print()
+    self.acls:print()
+  end
+
+  function mud:oldprint()
     for element_name, element in pairs(self.yang_elements) do
       if element:hasValue() then
         print(element_name .. ": " .. element:getValueAsString())
