@@ -14,6 +14,7 @@ TestMud = {} --class
     function TestMud:testDraftExample()
       self.a = mu.mud.create()
       self.a:parseFile("../examples/example_from_draft.json")
+      --self.a:parseFile("/tmp/mini-example.json")
       self.a:print()
     end
 -- class testMud

@@ -1,6 +1,19 @@
 local url = require("socket.url")
 local luadate = require("date")
 
+local json = require("cjson")
+
+-- ponderings (TODO)
+--
+-- Should we make a (global?) type registry, and just treat everything as a type?
+-- e.g. augmentations, and basic types, etc.
+--
+-- in code, we can make an augmentation by simply inheritFrom (see also
+-- how we define top-level definitions, we inheritFrom container there)
+--
+-- do we need basic enumtypes and identitytypes?
+--
+
 local _M = {}
 -- helper classes for the basic types used in YANG
 -- These classes take care of validation of values, basic conversion,
@@ -65,6 +78,21 @@ function inheritsFrom( baseClass )
     return new_class
 end
 
+-- helper function for deep copying data nodes
+local function deepcopy(orig)
+    local orig_type = type(orig)
+    local copy
+    if orig_type == 'table' then
+        copy = {}
+        for orig_key, orig_value in next, orig, nil do
+            copy[deepcopy(orig_key)] = deepcopy(orig_value)
+        end
+        setmetatable(copy, deepcopy(getmetatable(orig)))
+    else -- number, string, boolean, etc
+        copy = orig
+    end
+    return copy
+end
 
 local BaseType = {}
 BaseType_mt = { __index = BaseType }
@@ -73,7 +101,11 @@ BaseType_mt = { __index = BaseType }
     setmetatable(new_inst, BaseType)
     new_inst.value = nil
     new_inst.typeName = typeName
-    new_inst.mandatory = mandatory or True
+    if mandatory ~= nil then
+      new_inst.mandatory = mandatory
+    else
+      new_inst.mandatory = true
+    end
     return new_inst
   end
 
@@ -109,17 +141,24 @@ BaseType_mt = { __index = BaseType }
   -- (so it is not, in fact, json data)
   -- maybe make it 'fromData' or 'fromBasicData' or something?
   -- what does one call data comprising only basic language types
-  function BaseType:fromJSON(json_data)
+  function BaseType:fromData(json_data)
     -- for basic types, we simply use setValue (which contains the correct checks)
+    -- complex types should override this method
     self:setValue(json_data)
+  end
+
+  -- returns the current value as native data; for simple types, this
+  -- is just the value itself
+  function BaseType:toData()
+    return self.value
   end
 -- class BaseType not exported
 
 
 local uint8 = inheritsFrom(BaseType)
 uint8_mt = { __index = uint8 }
-  function uint8:create()
-    local new_inst = BaseType:create("uint8")
+  function uint8:create(mandatory)
+    local new_inst = BaseType:create("uint8", mandatory)
     setmetatable(new_inst, uint8_mt)
     return new_inst
   end
@@ -137,10 +176,53 @@ uint8_mt = { __index = uint8 }
   end
 _M.uint8 = uint8
 
+local uint16 = inheritsFrom(BaseType)
+uint16_mt = { __index = uint16 }
+  function uint16:create(mandatory)
+    local new_inst = BaseType:create("uint16", mandatory)
+    setmetatable(new_inst, uint16_mt)
+    return new_inst
+  end
+
+  function uint16:setValue(value)
+    if type(value) == 'number' then
+      if value < 0 or value > 65535 then
+        error("value for " .. set.getType() .. " out of range: " .. value)
+      else
+        self.value = value
+      end
+    else
+      error("type error: " .. self:getType() .. ".setValue() with type " .. type(value) .. " instead of number")
+    end
+  end
+_M.uint16 = uint16
+
+local uint32 = inheritsFrom(BaseType)
+uint32_mt = { __index = uint32 }
+  function uint32:create(mandatory)
+    local new_inst = BaseType:create("uint32", mandatory)
+    setmetatable(new_inst, uint32_mt)
+    return new_inst
+  end
+
+  function uint32:setValue(value)
+    if type(value) == 'number' then
+      if value < 0 or value > 4294967295 then
+        error("value for " .. set.getType() .. " out of range: " .. value)
+      else
+        self.value = value
+      end
+    else
+      error("type error: " .. self:getType() .. ".setValue() with type " .. type(value) .. " instead of number")
+    end
+  end
+_M.uint32 = uint32
+
+
 local boolean = inheritsFrom(BaseType)
 boolean_mt = { __index = boolean }
-  function boolean:create()
-    local new_inst = BaseType:create("boolean")
+  function boolean:create(mandatory)
+    local new_inst = BaseType:create("boolean", mandatory)
     setmetatable(new_inst, boolean_mt)
     return new_inst
   end
@@ -156,8 +238,8 @@ _M.boolean = boolean
 
 local inet_uri = inheritsFrom(BaseType)
 inet_uri_mt = { __index = inet_uri }
-  function inet_uri:create()
-    local new_inst = BaseType:create("inet:uri")
+  function inet_uri:create(mandatory)
+    local new_inst = BaseType:create("inet:uri", mandatory)
     setmetatable(new_inst, inet_uri_mt)
     return new_inst
   end
@@ -165,7 +247,6 @@ inet_uri_mt = { __index = inet_uri }
   function inet_uri:setValue(value)
     if type(value) == 'string' then
       self.uri_parts = url.parse(value, nil)
-      --print("[XX] " .. self.uri_parts['url'])
       if self.uri_parts == nil or self.uri_parts['host'] == nil then
         error("value for " .. self:getType() .. ".setValue() is not a valid URI: " .. value)
       end
@@ -178,8 +259,8 @@ _M.inet_uri = inet_uri
 
 local yang_date_and_time = inheritsFrom(BaseType)
 yang_date_and_time_mt = { __index = yang_date_and_time }
-  function yang_date_and_time:create()
-    local new_inst = BaseType:create("yang:date-and-time")
+  function yang_date_and_time:create(mandatory)
+    local new_inst = BaseType:create("yang:date-and-time", mandatory)
     setmetatable(new_inst, yang_date_and_time_mt)
     return new_inst
   end
@@ -198,11 +279,70 @@ yang_date_and_time_mt = { __index = yang_date_and_time }
   end
 _M.yang_date_and_time = yang_date_and_time
 
+local yang_mac_address = inheritsFrom(BaseType)
+yang_mac_address_mt = { __index = yang_mac_address }
+  function yang_mac_address:create(mandatory)
+    local new_inst = BaseType:create("inet:uri", mandatory)
+    setmetatable(new_inst, yang_mac_address_mt)
+    return new_inst
+  end
+
+  function yang_mac_address:setValue(value)
+    if type(value) == 'string' then
+      if not string.match(value, "^%x%x:%x%x:%x%x:%x%x:%x%x:%x%x$") then
+        error("value for " .. self:getType() .. ".setValue() is not a valid MAC address: " .. value)
+      end
+      self.value = value
+    else
+      error("type error: " .. self:getType() .. ".setValue() with type " .. type(value) .. " instead of string")
+    end
+  end
+_M.yang_mac_address = yang_mac_address
+
+local eth_ethertype = inheritsFrom(BaseType)
+eth_ethertype_mt = { __index = eth_ethertype }
+  function eth_ethertype:create(mandatory)
+    local new_inst = BaseType:create("inet:uri", mandatory)
+    setmetatable(new_inst, eth_ethertype_mt)
+    return new_inst
+  end
+
+  function eth_ethertype:setValue(value)
+    error("NOTIMPL: eth:ethertype not implemented yet")
+  end
+_M.eth_ethertype = eth_ethertype
+
+local inet_dscp = inheritsFrom(BaseType)
+inet_dscp_mt = { __index = inet_dscp }
+  function inet_dscp:create(mandatory)
+    local new_inst = BaseType:create("inet:uri", mandatory)
+    setmetatable(new_inst, inet_dscp_mt)
+    return new_inst
+  end
+
+  function inet_dscp:setValue(value)
+    error("NOTIMPL: inet:dscp not implemented yet")
+  end
+_M.inet_dscp = inet_dscp
+
+local bits = inheritsFrom(BaseType)
+bits_mt = { __index = bits }
+  function bits:create(mandatory)
+    local new_inst = BaseType:create("inet:uri", mandatory)
+    setmetatable(new_inst, bits_mt)
+    return new_inst
+  end
+
+  function bits:setValue(value)
+    error("NOTIMPL: bits not implemented yet")
+  end
+_M.bits = bits
+
 
 local string = inheritsFrom(BaseType)
 string_mt = { __index = string }
-  function string:create()
-    local new_inst = BaseType:create("string")
+  function string:create(mandatory)
+    local new_inst = BaseType:create("string", mandatory)
     setmetatable(new_inst, string_mt)
     return new_inst
   end
@@ -218,8 +358,8 @@ _M.string = string
 
 local notimplemented = inheritsFrom(BaseType)
 notimplemented_mt = { __index = notimplemented }
-  function notimplemented:create()
-    local new_inst = BaseType:create("notimplemented")
+  function notimplemented:create(mandatory)
+    local new_inst = BaseType:create("notimplemented", mandatory)
     setmetatable(new_inst, notimplemented_mt)
     return new_inst
   end
@@ -230,50 +370,11 @@ notimplemented_mt = { __index = notimplemented }
 _M.notimplemented = notimplemented
 
 --
-local list = inheritsFrom(BaseType)
-list_mt = { __index = list }
-  function list:create()
-    local new_inst = BaseType:create("list")
-    setmetatable(new_inst, list_mt)
-    new_inst.entry_elements = {}
-    -- value is a table of entries, each of which should conform to
-    -- the specification of entry_elements
-    new_inst.value = {}
-    return new_inst
-  end
-
-  function list:set_entry_element(name, element_type_instance)
-    self.entry_elements[name] = element_type_instance
-  end
-
-  function list:add_element()
-    local new_element = {}
-    new_element.yang_elements = self.entry_elements
-    new_element.value = nil
-    table.insert(self.value, new_element)
-    return new_element
-  end
-  -- should we error on attempts to use getValue and setValue?
-
-  function list:getValueAsString()
-    local result = "[\n"
-    for i,v in pairs(self.value) do
-      result = result .. "{\n"
-      for name,ye in pairs(v.yang_elements) do
-        result = result .. "  " .. name .. ": " .. ye:getValueAsString() .. ",\n"
-      end
-      result = result .. "\n},\n"
-    end
-    result = result .. "\n]\n"
-    return result
-  end
-_M.list = list
-
 
 local acl_type = inheritsFrom(BaseType)
 acl_type_mt = { __index = acl_type }
-  function acl_type:create()
-    local new_inst = BaseType:create("acl-type")
+  function acl_type:create(mandatory)
+    local new_inst = BaseType:create("acl-type", mandatory)
     setmetatable(new_inst, acl_type_mt)
     return new_inst
   end
@@ -297,30 +398,214 @@ _M.acl_type = acl_type
 -- essentially, it's the 'main' holder of definitions and data
 local container = inheritsFrom(BaseType)
 container_mt = { __index = container }
-  function container:create()
-    local new_inst = BaseType:create("container")
+  function container:create(mandatory)
+    local new_inst = BaseType:create("container", mandatory)
     setmetatable(new_inst, container_mt)
-    new_inst.yang_elements = {}
-    -- a container's value is contained in its yang elements
+    new_inst.yang_nodes = {}
+    -- a container's value is contained in its yang nodes
     new_inst.value = nil
     return new_inst
   end
 
-  function container:add_yang_element(element_name, element_type_instance)
-    self.yang_elements[name] = element_type_instance
+  function container:add_node(node_name, node_type_instance)
+    if node_type_instance == nil then error("container:add_node() called with nil node_type_instance") end
+    self.yang_nodes[node_name] = node_type_instance
   end
 
-  function container:fromJSON(json_data)
-    for element_name, element in pairs(self.yang_elements) do
-      print("Trying yang element " .. element_name)
-      if json_data[element_name] ~= nil then
-        element:fromJSON(json_data[element_name])
-      elseif element:isMandatory() then
-        error('mandatory element ' .. element_name .. ' not found')
+  function container:fromData(json_data, check_all_data_used)
+    for node_name, node in pairs(self.yang_nodes) do
+      if json_data[node_name] ~= nil then
+        node:fromData(json_data[node_name])
+        json_data[node_name] = nil
+      elseif node:isMandatory() then
+        --error('mandatory node ' .. node_name .. ' not found in: ' .. json.encode(json_data[node_name]))
+        error('mandatory node ' .. node_name .. ' not found in: ' .. json.encode(json_data))
+      --else
+      --  print("[XX] node with name " .. node_name .. " has no value but not mandatory: " .. json.encode(node:isMandatory()))
+      end
+    end
+    
+    if json.encode(json_data) ~= "{}" then
+      error("Unhandled data: " .. json.encode(json_data))
+    end
+  end
+
+  function container:print()
+    print(self:getValueAsString())
+  end
+
+  function container:getValueAsString()
+    local result = "{ "
+    for node_name, node in pairs(self.yang_nodes) do
+      if node:hasValue() then
+        result = result .. "  " .. node_name .. ": " .. node:getValueAsString() .. "\n"
+      else
+        result = result .. "  " .. node_name .. ": <not set>\n"
+      end
+    end
+    result = result .. "}\n"
+    return result
+  end
+
+  function container:toData()
+    local result = {}
+    for name,value in pairs(self.yang_nodes) do
+      local v = value:toData()
+      -- exclude empty nodes
+      --print("[XX] CONTAINER TODATA: " .. json.encode(v))
+      if v ~= nil and (type(v) ~= 'table' or tablelength(v) > 0) then
+          print("[XX] ADDING TO CONTAINER: " .. name .. " = " .. json.encode(v))
+          if json.encode(v) == "{}" then
+            print("[XX][XX]")
+            print(v~=nil)
+            print(type(v) ~= 'table')
+            print("[XX][XX]")
+            error("bad, empty data should not be here " .. json.encode(tablelength(v)))
+          end
+          result[name] = v
+      end
+      --  value:toData()
+      --end
+      --if tablelength(v) > 0 then result[name] = value:toData() end
+    end
+    return result
+  end
+_M.container = container
+
+-- we implement lists by making them lists of containers, with
+-- an interface that skips the container part (mostly)
+local list = inheritsFrom(BaseType)
+list_mt = { __index = list }
+  function list:create()
+    local new_inst = BaseType:create("list")
+    setmetatable(new_inst, list_mt)
+    new_inst.entry_nodes = {}
+    -- value is a table of entries, each of which should conform to
+    -- the specification of entry_nodes
+    new_inst.value = {}
+    return new_inst
+  end
+
+  function list:set_entry_node(name, node_type_instance)
+    self.entry_nodes[name] = node_type_instance
+  end
+
+  function list:add_node()
+    local new_node = container:create()
+    -- TODO: should this be a deep copy?
+    new_node.yang_nodes = deepcopy(self.entry_nodes)
+    --new_node.value = nil
+    table.insert(self.value, new_node)
+    return new_node
+  end
+  -- TODO: should we error on attempts to use getValue and setValue?
+
+  function list:fromData(data)
+    -- TODO: should we empty our local data to be sure at this point?
+    for i,data_el in pairs(data) do
+      local new_el = self:add_node()
+      new_el:fromData(data_el)
+    end
+  end
+
+  function list:getValueAsString()
+    local result = " <LIST> [\n"
+    for i,v in pairs(self.value) do
+      for name,ye in pairs(v.yang_nodes) do
+        result = result .. "  " .. name .. ": " .. ye:getValueAsString() .. ",\n"
+      end
+      result = result .. ",\n"
+    end
+    result = result .. "\n]\n"
+    return result
+  end
+
+  function list:print()
+    print(self:getValueAsString())
+  end
+
+  function list:toData()
+    local result = {}
+    for i,value in pairs(self.value) do
+      table.insert(result, value:toData())
+    end
+    return result
+  end
+_M.list = list
+
+-- TODO: remove
+function tablelength(T)
+  local count = 0
+  for _ in pairs(T) do count = count + 1 end
+  return count
+end
+
+-- TODO: can we derive from the definition whether we need to 'remove' the intermediate step?
+-- choice is a type where one or more of the defined choices can be used
+local choice = inheritsFrom(BaseType)
+choice_mt = { __index = choice }
+  function choice:create(mandatory, singlechoice)
+    local new_inst = BaseType:create("choice", mandatory)
+    setmetatable(new_inst, choice_mt)
+    new_inst.choices = {}
+    new_inst.singleChoice = singlechoice
+    -- value is a table of entries, each of which should conform to
+    -- the specification of entry_nodes
+    return new_inst
+  end
+
+--  function choice:setValue(value)
+--    -- do we need this?
+--    error("Got setValue for: " .. json.encode(value))
+--  end
+
+  function choice:add_choice(name, node_type)
+    self.choices[name] = node_type
+  end
+
+  function choice:fromData(data)
+    for data_name, data_data in pairs(data) do
+      local found = false
+      for name,node_type in pairs(self.choices) do
+        if name == data_name then
+          node_type:fromData(data_data)
+          found = true
+        end
+        -- todo: improve error
+      end
+      -- fallback (can we remove the above and only use this?
+      if not found then
+        for name,node_type in pairs(self.choices) do
+          local status = pcall(node_type.fromData, node_type, data)
+          if status then found = true end
+        end
+        if not found then error("Unknown choice value: " .. data_name) end
       end
     end
   end
-_M.container = container
+
+  function choice:toData(data)
+    local result = {}
+    for name,node in pairs(self.choices) do
+      -- TODO: do we need a hasValue() check for all types?
+      --if node:getValue() ~= nil then
+      local v = node:toData()
+      if v ~= nil and (type(v) ~= 'table' or tablelength(v) > 0) then
+        print("[XX] CHOICE TODATA: " .. json.encode(node:toData()))
+        result[name] = node:toData()
+      end
+      -- TODO this seems wrong
+      if self.singleChoice then
+        for n,v in pairs(result) do
+          return v
+        end
+      end
+      print("[XX] RETURNING CHOICE: " .. json.encode(result))
+      print("[XX] CHOICE RESULT SIZE: " .. json.encode(tablelength(result)))
+    end
+    return result
+  end
+_M.choice = choice
 
 return _M
 
