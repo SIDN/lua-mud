@@ -1,2 +1,2 @@
 all:
-	LUA_PATH="../src/?.lua;${LUA_PATH}" ../test/test_yang_types.lua
+	LUA_PATH="../src/?.lua;../test/?.lua;${LUA_PATH}" ../test/test_all.lua

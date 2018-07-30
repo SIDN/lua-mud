@@ -94,5 +94,56 @@ TestURI = {}
     --lu.assertEquals(self.a:getValue(), 1)
     --self.a:setValue(1)
   end
+-- class TestURI
 
-lu.run()
+TestDateTime = {}
+  function TestDateTime:setup()
+    self.a = yt.yang_date_and_time:create()
+    self.b = yt.yang_date_and_time:create()
+    self.c = yt.yang_date_and_time:create()
+  end
+
+  function TestDateTime:testSet()
+    lu.assertEquals(self.a:getValue(), nil)
+    self.a:setValue("2018-03-02T10:20:51+01:00")
+    self.b:setValue("2018-03-02T10:20:51+01:00")
+    self.c:setValue("2018-03-02T12:20:51+01:00")
+    lu.assertEquals(self.a.date, self.b.date)
+    lu.assertNotEquals(self.a.date, self.c.date)
+    lu.assertNotEquals(self.b.date, self.c.date)
+  end
+
+  function TestDateTime:testBadValues()
+    lu.assertEquals(self.a:getValue(), nil)
+    lu.assertError(self.a.setValue, self.a, 1)
+    lu.assertError(self.a.setValue, self.a, "foo")
+    lu.assertEquals(self.a:getValue(), nil)
+
+    -- make sure it doesn't modify the value if set fails
+    self.a:setValue("2018-03-02T10:20:51+01:00")
+    self.b:setValue("2018-03-02T10:20:51+01:00")
+    lu.assertEquals(self.a.date, self.b.date)
+    lu.assertError(self.a.setValue, self.a, "foo")
+    lu.assertEquals(self.a.date, self.b.date)
+  end
+-- class TestDateTime
+
+TestString = {}
+  function TestString:setup()
+    self.a = yt.string:create()
+    self.b = yt.string:create()
+  end
+
+  function TestString:setValue()
+    lu.assertEquals(self.a:getValue(), nil)
+    self.a.setValue("foobar")
+    lu.assertEquals(self.a:getValue(), "foobar")
+
+    lu.assertNotEquals(self.a:getValue(), self.b.getValue())
+    self.b.setValue("foobar")
+    lu.assertEquals(self.a:getValue(), self.b.getValue())
+  end
+-- class TestString
+
+--lu.run()
+

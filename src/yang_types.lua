@@ -1,4 +1,5 @@
 local url = require("socket.url")
+local luadate = require("date")
 
 local _M = {}
 -- helper classes for the basic types used in YANG
@@ -67,11 +68,12 @@ end
 
 local BaseType = {}
 BaseType_mt = { __index = BaseType }
-  function BaseType:create(typeName)
+  function BaseType:create(typeName, mandatory)
     local new_inst = {}
     setmetatable(new_inst, BaseType)
     new_inst.value = nil
     new_inst.typeName = typeName
+    new_inst.mandatory = mandatory or True
     return new_inst
   end
 
@@ -79,8 +81,37 @@ BaseType_mt = { __index = BaseType }
     return self.typeName
   end
 
-  function BaseType:getValue(value)
+  function BaseType:getValue()
     return self.value
+  end
+
+  function BaseType:getValueAsString()
+    return tostring(self.value)
+  end
+
+  function BaseType:hasValue(value)
+    return self.value ~= nil
+  end
+
+  function BaseType:setValue(value)
+    error("setValue needs to be implemented in subclass")
+  end
+
+  function BaseType:validate()
+    error("validate needs to be implemented in subclass")
+  end
+
+  function BaseType:isMandatory()
+    return self.mandatory
+  end
+
+  -- note: this 'json_data' is already read with json.decode()!
+  -- (so it is not, in fact, json data)
+  -- maybe make it 'fromData' or 'fromBasicData' or something?
+  -- what does one call data comprising only basic language types
+  function BaseType:fromJSON(json_data)
+    -- for basic types, we simply use setValue (which contains the correct checks)
+    self:setValue(json_data)
   end
 -- class BaseType not exported
 
@@ -136,7 +167,7 @@ inet_uri_mt = { __index = inet_uri }
       self.uri_parts = url.parse(value, nil)
       --print("[XX] " .. self.uri_parts['url'])
       if self.uri_parts == nil or self.uri_parts['host'] == nil then
-        error("value for " .. self:getType() .. ".setValue() is not a valid URI")
+        error("value for " .. self:getType() .. ".setValue() is not a valid URI: " .. value)
       end
       self.value = value
     else
@@ -145,6 +176,151 @@ inet_uri_mt = { __index = inet_uri }
   end
 _M.inet_uri = inet_uri
 
+local yang_date_and_time = inheritsFrom(BaseType)
+yang_date_and_time_mt = { __index = yang_date_and_time }
+  function yang_date_and_time:create()
+    local new_inst = BaseType:create("yang:date-and-time")
+    setmetatable(new_inst, yang_date_and_time_mt)
+    return new_inst
+  end
 
+  function yang_date_and_time:setValue(value)
+    if type(value) == 'string' then
+      local success, result = pcall(luadate, value)
+      if not success then
+        error("value for " .. self:getType() .. ".setValue() is not a valid datetime: " .. result)
+      end
+      self.date = result
+      self.value = value
+    else
+      error("type error: " .. self:getType() .. ".setValue() with type " .. type(value) .. " instead of string")
+    end
+  end
+_M.yang_date_and_time = yang_date_and_time
+
+
+local string = inheritsFrom(BaseType)
+string_mt = { __index = string }
+  function string:create()
+    local new_inst = BaseType:create("string")
+    setmetatable(new_inst, string_mt)
+    return new_inst
+  end
+
+  function string:setValue(value)
+    if type(value) == 'string' then
+      self.value = value
+    else
+      error("type error: " .. self:getType() .. ".setValue() with type " .. type(value) .. " instead of number")
+    end
+  end
+_M.string = string
+
+local notimplemented = inheritsFrom(BaseType)
+notimplemented_mt = { __index = notimplemented }
+  function notimplemented:create()
+    local new_inst = BaseType:create("notimplemented")
+    setmetatable(new_inst, notimplemented_mt)
+    return new_inst
+  end
+
+  function notimplemented:setValue(value)
+    error("Not implemented")
+  end
+_M.notimplemented = notimplemented
+
+--
+local list = inheritsFrom(BaseType)
+list_mt = { __index = list }
+  function list:create()
+    local new_inst = BaseType:create("list")
+    setmetatable(new_inst, list_mt)
+    new_inst.entry_elements = {}
+    -- value is a table of entries, each of which should conform to
+    -- the specification of entry_elements
+    new_inst.value = {}
+    return new_inst
+  end
+
+  function list:set_entry_element(name, element_type_instance)
+    self.entry_elements[name] = element_type_instance
+  end
+
+  function list:add_element()
+    local new_element = {}
+    new_element.yang_elements = self.entry_elements
+    new_element.value = nil
+    table.insert(self.value, new_element)
+    return new_element
+  end
+  -- should we error on attempts to use getValue and setValue?
+
+  function list:getValueAsString()
+    local result = "[\n"
+    for i,v in pairs(self.value) do
+      result = result .. "{\n"
+      for name,ye in pairs(v.yang_elements) do
+        result = result .. "  " .. name .. ": " .. ye:getValueAsString() .. ",\n"
+      end
+      result = result .. "\n},\n"
+    end
+    result = result .. "\n]\n"
+    return result
+  end
+_M.list = list
+
+
+local acl_type = inheritsFrom(BaseType)
+acl_type_mt = { __index = acl_type }
+  function acl_type:create()
+    local new_inst = BaseType:create("acl-type")
+    setmetatable(new_inst, acl_type_mt)
+    return new_inst
+  end
+
+  function acl_type:setValue(value)
+    if type(value) == 'string' then
+      -- TODO: rest of types. do we need to keep enumeration lists centrally?
+      if value == "ipv4-acl-type" or
+         value == "ipv6-acl-type" then
+        self.value = value
+      else
+        error("type error: " .. self:getType() .. ".setValue() with unknown acl type: '" .. value .. "'")
+      end
+    else
+      error("type error: " .. self:getType() .. ".setValue() with type " .. type(value) .. " instead of string")
+    end
+  end
+_M.acl_type = acl_type
+
+-- a container is the general-purpose holder of data that is not of any specific type
+-- essentially, it's the 'main' holder of definitions and data
+local container = inheritsFrom(BaseType)
+container_mt = { __index = container }
+  function container:create()
+    local new_inst = BaseType:create("container")
+    setmetatable(new_inst, container_mt)
+    new_inst.yang_elements = {}
+    -- a container's value is contained in its yang elements
+    new_inst.value = nil
+    return new_inst
+  end
+
+  function container:add_yang_element(element_name, element_type_instance)
+    self.yang_elements[name] = element_type_instance
+  end
+
+  function container:fromJSON(json_data)
+    for element_name, element in pairs(self.yang_elements) do
+      print("Trying yang element " .. element_name)
+      if json_data[element_name] ~= nil then
+        element:fromJSON(json_data[element_name])
+      elseif element:isMandatory() then
+        error('mandatory element ' .. element_name .. ' not found')
+      end
+    end
+  end
+_M.container = container
 
 return _M
+
