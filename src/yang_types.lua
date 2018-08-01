@@ -3,6 +3,17 @@ local luadate = require("date")
 
 local json = require("cjson")
 
+-- ponderings (TODO)
+--
+-- Should we make a (global?) type registry, and just treat everything as a type?
+-- e.g. augmentations, and basic types, etc.
+--
+-- in code, we can make an augmentation by simply inheritFrom (see also
+-- how we define top-level definitions, we inheritFrom container there)
+--
+-- do we need basic enumtypes and identitytypes?
+--
+
 local _M = {}
 -- helper classes for the basic types used in YANG
 -- These classes take care of validation of values, basic conversion,
@@ -401,7 +412,7 @@ container_mt = { __index = container }
     self.yang_elements[element_name] = element_type_instance
   end
 
-  function container:fromData(json_data)
+  function container:fromData(json_data, check_all_data_used)
     for element_name, element in pairs(self.yang_elements) do
       print("Trying yang element '" .. element_name .. "' (" .. element:getType() .. ")")
       if json_data[element_name] ~= nil then
@@ -414,6 +425,7 @@ container_mt = { __index = container }
       --  print("[XX] element with name " .. element_name .. " has no value but not mandatory: " .. json.encode(element:isMandatory()))
       end
     end
+    
     if json.encode(json_data) ~= "{}" then
       print("[XX] TABLE AFTER CONTAINER FROMDATA: " .. json.encode(json_data))
       error("Unhandled data: " .. json.encode(json_data))
@@ -440,7 +452,17 @@ container_mt = { __index = container }
   function container:toData()
     local result = {}
     for name,value in pairs(self.yang_elements) do
-      result[name] = value:toData()
+      local v = value:toData()
+      -- exclude empty elements
+      if name == "eth" then
+        error("yo")
+      end
+      if v ~= nil and (type(v) ~= table or tablelength(v) > 0) then
+          result[name] = v
+      end
+      --  value:toData()
+      --end
+      --if tablelength(v) > 0 then result[name] = value:toData() end
     end
     return result
   end
@@ -623,23 +645,17 @@ choice_mt = { __index = choice }
 
   function choice:toData(data)
     local result = {}
-    print("[XX] toData on choice")
     for name,element in pairs(self.choices) do
-      print("[XX] trying choice " .. name .. " in toData")
       -- TODO: do we need a hasValue() check for all types?
       --if element:getValue() ~= nil then
-      print("[XX] RAW DATA: " .. json.encode(element))
-      print("[XX] toData: " .. json.encode(element:toData()))
-      result[name] = element:toData()
-      --end
+      local v = element:toData()
+      if v ~= nil and (type(v) ~= 'table' or tablelength(v) > 0) then
+        result[name] = element:toData()
+      end
     end
     return result
   end
 _M.choice = choice
-
-
-
--- choice is like case, but only one option allowed
 
 return _M
 
