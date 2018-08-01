@@ -132,7 +132,14 @@ BaseType_mt = { __index = BaseType }
   -- what does one call data comprising only basic language types
   function BaseType:fromData(json_data)
     -- for basic types, we simply use setValue (which contains the correct checks)
+    -- complex types should override this method
     self:setValue(json_data)
+  end
+
+  -- returns the current value as native data; for simple types, this
+  -- is just the value itself
+  function BaseType:toData()
+    return self.value
   end
 -- class BaseType not exported
 
@@ -157,6 +164,49 @@ uint8_mt = { __index = uint8 }
     end
   end
 _M.uint8 = uint8
+
+local uint16 = inheritsFrom(BaseType)
+uint16_mt = { __index = uint16 }
+  function uint16:create(mandatory)
+    local new_inst = BaseType:create("uint16", mandatory)
+    setmetatable(new_inst, uint16_mt)
+    return new_inst
+  end
+
+  function uint16:setValue(value)
+    if type(value) == 'number' then
+      if value < 0 or value > 65535 then
+        error("value for " .. set.getType() .. " out of range: " .. value)
+      else
+        self.value = value
+      end
+    else
+      error("type error: " .. self:getType() .. ".setValue() with type " .. type(value) .. " instead of number")
+    end
+  end
+_M.uint16 = uint16
+
+local uint32 = inheritsFrom(BaseType)
+uint32_mt = { __index = uint32 }
+  function uint32:create(mandatory)
+    local new_inst = BaseType:create("uint32", mandatory)
+    setmetatable(new_inst, uint32_mt)
+    return new_inst
+  end
+
+  function uint32:setValue(value)
+    if type(value) == 'number' then
+      if value < 0 or value > 4294967295 then
+        error("value for " .. set.getType() .. " out of range: " .. value)
+      else
+        self.value = value
+      end
+    else
+      error("type error: " .. self:getType() .. ".setValue() with type " .. type(value) .. " instead of number")
+    end
+  end
+_M.uint32 = uint32
+
 
 local boolean = inheritsFrom(BaseType)
 boolean_mt = { __index = boolean }
@@ -217,6 +267,65 @@ yang_date_and_time_mt = { __index = yang_date_and_time }
     end
   end
 _M.yang_date_and_time = yang_date_and_time
+
+local yang_mac_address = inheritsFrom(BaseType)
+yang_mac_address_mt = { __index = yang_mac_address }
+  function yang_mac_address:create(mandatory)
+    local new_inst = BaseType:create("inet:uri", mandatory)
+    setmetatable(new_inst, yang_mac_address_mt)
+    return new_inst
+  end
+
+  function yang_mac_address:setValue(value)
+    if type(value) == 'string' then
+      if not string.match(value, "^%x%x:%x%x:%x%x:%x%x:%x%x:%x%x$") then
+        error("value for " .. self:getType() .. ".setValue() is not a valid MAC address: " .. value)
+      end
+      self.value = value
+    else
+      error("type error: " .. self:getType() .. ".setValue() with type " .. type(value) .. " instead of string")
+    end
+  end
+_M.yang_mac_address = yang_mac_address
+
+local eth_ethertype = inheritsFrom(BaseType)
+eth_ethertype_mt = { __index = eth_ethertype }
+  function eth_ethertype:create(mandatory)
+    local new_inst = BaseType:create("inet:uri", mandatory)
+    setmetatable(new_inst, eth_ethertype_mt)
+    return new_inst
+  end
+
+  function eth_ethertype:setValue(value)
+    error("NOTIMPL: eth:ethertype not implemented yet")
+  end
+_M.eth_ethertype = eth_ethertype
+
+local inet_dscp = inheritsFrom(BaseType)
+inet_dscp_mt = { __index = inet_dscp }
+  function inet_dscp:create(mandatory)
+    local new_inst = BaseType:create("inet:uri", mandatory)
+    setmetatable(new_inst, inet_dscp_mt)
+    return new_inst
+  end
+
+  function inet_dscp:setValue(value)
+    error("NOTIMPL: inet:dscp not implemented yet")
+  end
+_M.inet_dscp = inet_dscp
+
+local bits = inheritsFrom(BaseType)
+bits_mt = { __index = bits }
+  function bits:create(mandatory)
+    local new_inst = BaseType:create("inet:uri", mandatory)
+    setmetatable(new_inst, bits_mt)
+    return new_inst
+  end
+
+  function bits:setValue(value)
+    error("NOTIMPL: bits not implemented yet")
+  end
+_M.bits = bits
 
 
 local string = inheritsFrom(BaseType)
@@ -288,30 +397,52 @@ container_mt = { __index = container }
   end
 
   function container:add_yang_element(element_name, element_type_instance)
+    if element_type_instance == nil then error("container:add_yang_element() called with nil element_type_instance") end
     self.yang_elements[element_name] = element_type_instance
   end
 
   function container:fromData(json_data)
     for element_name, element in pairs(self.yang_elements) do
-      print("Trying yang element " .. element_name)
+      print("Trying yang element '" .. element_name .. "' (" .. element:getType() .. ")")
       if json_data[element_name] ~= nil then
         element:fromData(json_data[element_name])
+        json_data[element_name] = nil
       elseif element:isMandatory() then
-        error('mandatory element ' .. element_name .. ' not found in: ' .. json.encode(json_data[element_name]))
+        --error('mandatory element ' .. element_name .. ' not found in: ' .. json.encode(json_data[element_name]))
+        error('mandatory element ' .. element_name .. ' not found in: ' .. json.encode(json_data))
       --else
       --  print("[XX] element with name " .. element_name .. " has no value but not mandatory: " .. json.encode(element:isMandatory()))
       end
     end
+    if json.encode(json_data) ~= "{}" then
+      print("[XX] TABLE AFTER CONTAINER FROMDATA: " .. json.encode(json_data))
+      error("Unhandled data: " .. json.encode(json_data))
+    end
   end
 
   function container:print()
+    print(self:getValueAsString())
+  end
+
+  function container:getValueAsString()
+    result = "{ "
     for element_name, element in pairs(self.yang_elements) do
       if element:hasValue() then
-        print(element_name .. ": " .. element:getValueAsString())
+        result = result .. "  " .. element_name .. ": " .. element:getValueAsString() .. "\n"
       else
-        print(element_name .. ": <not set>")
+        result = result .. "  " .. element_name .. ": <not set>\n"
       end
     end
+    result = result .. "}\n"
+    return result
+  end
+
+  function container:toData()
+    local result = {}
+    for name,value in pairs(self.yang_elements) do
+      result[name] = value:toData()
+    end
+    return result
   end
 _M.container = container
 
@@ -353,13 +484,12 @@ list_mt = { __index = list }
   end
 
   function list:getValueAsString()
-    local result = "[\n"
+    local result = " <LIST> [\n"
     for i,v in pairs(self.value) do
-      result = result .. "{\n"
       for name,ye in pairs(v.yang_elements) do
         result = result .. "  " .. name .. ": " .. ye:getValueAsString() .. ",\n"
       end
-      result = result .. "\n},\n"
+      result = result .. ",\n"
     end
     result = result .. "\n]\n"
     return result
@@ -368,7 +498,148 @@ list_mt = { __index = list }
   function list:print()
     print(self:getValueAsString())
   end
+
+  function list:toData()
+    local result = {}
+    for i,value in pairs(self.value) do
+      table.insert(result, value:toData())
+    end
+    return result
+  end
 _M.list = list
+
+-- TODO: remove
+function tablelength(T)
+  local count = 0
+  for _ in pairs(T) do count = count + 1 end
+  return count
+end
+
+-- case is a type where one or more of the defined choices can be used
+local case = inheritsFrom(BaseType)
+case_mt = { __index = case }
+  function case:create(mandatory)
+    local new_inst = BaseType:create("case", mandatory)
+    setmetatable(new_inst, case_mt)
+    new_inst.cases = {}
+    -- value is a table of entries, each of which should conform to
+    -- the specification of entry_elements
+    return new_inst
+  end
+
+--  function case:setValue(value)
+--    -- do we need this?
+--    error("Got setValue for: " .. json.encode(value))
+--  end
+
+  function case:add_case(name, element_type)
+    self.cases[name] = element_type
+    print("[XX] ADDED CASE FOR " .. name .. " size now: " .. tablelength(self.cases))
+  end
+
+  function case:fromData(data)
+    print("[XX] CASE fromData() data: " .. json.encode(data))
+    for data_name, data_data in pairs(data) do
+      print("[XX] looking for " .. data_name)
+      print("[XX] my data is: " .. json.encode(data_data))
+      local found = false
+      for name,element_type in pairs(self.cases) do
+        print("[XX] found: " .. name)
+        if name == data_name then
+          print("[XX] element_type mandatory: " .. element_type:getType() .. " " .. json.encode(element_type:isMandatory()))
+          element_type:fromData(data_data)
+          found = true
+        end
+        -- todo: improve error
+      end
+      if not found then error("Unknown case value: " .. data_name) end
+    end
+  end
+
+  function case:toData(data)
+    local result = {}
+    print("[XX] toData on case")
+    for name,element in pairs(self.cases) do
+      print("[XX] trying case " .. name .. " in toData")
+      -- TODO: do we need a hasValue() check for all types?
+      --if element:getValue() ~= nil then
+      print("[XX] RAW DATA: " .. json.encode(element))
+      print("[XX] toData: " .. json.encode(element:toData()))
+      result[name] = element:toData()
+      --end
+    end
+    return result
+  end
+_M.case = case
+
+-- case is a type where one or more of the defined choices can be used
+local choice = inheritsFrom(BaseType)
+choice_mt = { __index = choice }
+  function choice:create(mandatory)
+    local new_inst = BaseType:create("choice", mandatory)
+    setmetatable(new_inst, choice_mt)
+    new_inst.choices = {}
+    -- value is a table of entries, each of which should conform to
+    -- the specification of entry_elements
+    return new_inst
+  end
+
+--  function choice:setValue(value)
+--    -- do we need this?
+--    error("Got setValue for: " .. json.encode(value))
+--  end
+
+  function choice:add_choice(name, element_type)
+    self.choices[name] = element_type
+    print("[XX] ADDED choice FOR " .. name .. " size now: " .. tablelength(self.choices))
+  end
+
+  function choice:fromData(data)
+    print("[XX] choice fromData() data: " .. json.encode(data))
+    for data_name, data_data in pairs(data) do
+      print("[XX] looking for " .. data_name)
+      print("[XX] my data is: " .. json.encode(data_data))
+      local found = false
+      for name,element_type in pairs(self.choices) do
+        print("[XX] found: " .. name)
+        if name == data_name then
+          element_type:fromData(data_data)
+          found = true
+        end
+        -- todo: improve error
+      end
+      -- fallback (can we remove the above and only use this?
+      if not found then
+        print("[XX] TRYING FULL START")
+        for name,element_type in pairs(self.choices) do
+          print("[XX] TRYING FULL PARSE OF " .. json.encode(data))
+          local status = pcall(element_type.fromData, element_type, data)
+          if status then found = true end
+        end
+        if not found then error("Unknown choice value: " .. data_name) end
+      end
+    end
+  end
+
+  function choice:toData(data)
+    local result = {}
+    print("[XX] toData on choice")
+    for name,element in pairs(self.choices) do
+      print("[XX] trying choice " .. name .. " in toData")
+      -- TODO: do we need a hasValue() check for all types?
+      --if element:getValue() ~= nil then
+      print("[XX] RAW DATA: " .. json.encode(element))
+      print("[XX] toData: " .. json.encode(element:toData()))
+      result[name] = element:toData()
+      --end
+    end
+    return result
+  end
+_M.choice = choice
+
+
+
+-- choice is like case, but only one option allowed
 
 return _M
 

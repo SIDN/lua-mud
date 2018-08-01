@@ -80,19 +80,122 @@ mud_mt = { __index = mud }
     c:add_yang_element('firmware-rev', yt.string:create(false))
     c:add_yang_element('documentation', yt.inet_uri:create(false))
     c:add_yang_element('extensions', yt.notimplemented:create(false))
+
+    local from_device_policy = yt.container:create()
+    local access_lists = yt.container:create()
+    local access_lists_list = yt.list:create()
+    -- todo: references
+    access_lists_list:set_entry_element('name', yt.string:create())
+    access_lists:add_yang_element('access-list', access_lists_list)
+    -- this seems to be a difference between the example and the definition
+    from_device_policy:add_yang_element('access-lists', access_lists)
+    c:add_yang_element('from-device-policy', from_device_policy)
+
+    local to_device_policy = yt.container:create()
+    local access_lists = yt.container:create()
+    local access_lists_list = yt.list:create()
+    -- todo: references
+    access_lists_list:set_entry_element('name', yt.string:create())
+    access_lists:add_yang_element('access-list', access_lists_list)
+    -- this seems to be a difference between the example and the definition
+    to_device_policy:add_yang_element('access-lists', access_lists)
+    c:add_yang_element('to-device-policy', to_device_policy)
+
+    
     new_inst.mud = c
 
-    local a = yt.container:create()
-    local a_l = yt.list:create()
+    --local acl = yt.container:create()
+    local acl_list = yt.list:create()
+    acl_list:set_entry_element('name', yt.string:create(true))
+    acl_list:set_entry_element('type', yt.acl_type:create(false))
 
+    local aces = yt.container:create()
+    local ace_list = yt.list:create()
+    ace_list:set_entry_element('name', yt.string:create())
+    local matches = yt.case:create()
 
-    a_l:set_entry_element('name', yt.string:create(true))
-    a_l:set_entry_element('type', yt.acl_type:create(false))
-    --new_inst.acls = acl_list
-    --new_inst.yang_elements = {}
-    --new_inst.yang_elements['acls'] = acl_list
-    --a:add_yang_element('acl', a_l)
-    new_inst.acls = a_l
+    local matches_eth = yt.container:create()
+    matches_eth:add_yang_element('destination-mac-address', yt.yang_mac_address:create())
+    matches_eth:add_yang_element('destination-mac-address-mask', yt.yang_mac_address:create())
+    matches_eth:add_yang_element('source-mac-address', yt.yang_mac_address:create())
+    matches_eth:add_yang_element('source-mac-address-mask', yt.yang_mac_address:create())
+    matches_eth:add_yang_element('ethertype', yt.eth_ethertype:create())
+    
+    local matches_ipv4 = yt.container:create()
+    matches_ipv4:add_yang_element('dscp', yt.inet_dscp:create(false))
+    matches_ipv4:add_yang_element('ecn', yt.uint8:create(false))
+    matches_ipv4:add_yang_element('length', yt.uint16:create(false))
+    matches_ipv4:add_yang_element('ttl', yt.uint8:create(false))
+    matches_ipv4:add_yang_element('protocol', yt.uint8:create(false))
+    matches_ipv4:add_yang_element('ihl', yt.uint8:create(false))
+    matches_ipv4:add_yang_element('flags', yt.bits:create(false))
+    matches_ipv4:add_yang_element('offset', yt.uint16:create(false))
+    matches_ipv4:add_yang_element('identification', yt.uint16:create(false))
+    -- TODO: -network
+    --matches_ipv4:add_yang_element('', yt.:create())
+    --matches_ipv4:add_yang_element('', yt.:create())
+    matches_ipv4:add_yang_element('ietf-acldns:dst-dnsname', yt.string:create(false))
+    matches_ipv4:add_yang_element('ietf-acldns:src-dnsname', yt.string:create(false))
+
+    local matches_ipv6 = yt.container:create()
+    matches_ipv6:add_yang_element('dscp', yt.inet_dscp:create(false))
+    matches_ipv6:add_yang_element('ecn', yt.uint8:create(false))
+    matches_ipv6:add_yang_element('length', yt.uint16:create(false))
+    matches_ipv6:add_yang_element('ttl', yt.uint8:create(false))
+    matches_ipv6:add_yang_element('protocol', yt.uint8:create(false))
+    matches_ipv6:add_yang_element('ietf-acldns:dst-dnsname', yt.string:create(false))
+    matches_ipv6:add_yang_element('ietf-acldns:src-dnsname', yt.string:create(false))
+    -- TODO: -network
+    -- TODO: flow-label
+
+    local matches_tcp = yt.container:create()
+    matches_tcp:add_yang_element('sequence-number', yt.uint32:create(false))
+    matches_tcp:add_yang_element('acknowledgement-number', yt.uint32:create(false))
+    matches_tcp:add_yang_element('offset', yt.uint8:create(false))
+    matches_tcp:add_yang_element('reserved', yt.uint8:create(false))
+
+    local source_port_choice = yt.choice:create(false)
+    -- todo: full implementation of pf:port-range-or-operator
+    local choice_operator = yt.container:create()
+    choice_operator:add_yang_element('operator', yt.string:create())
+    choice_operator:add_yang_element('port', yt.uint16:create())
+    source_port_choice:add_choice('operator', choice_operator)
+    --source_port_choice:add_choice('operator', 
+    --source_port_choice:add_choice('
+    print("[XX] ADDING SOURCE PORT CHOICE " .. json.encode(source_port_choice:isMandatory()))
+    matches_tcp:add_yang_element('source-port', source_port_choice)
+
+    local destination_port_choice = yt.choice:create(false)
+    -- todo: full implementation of pf:port-range-or-operator
+    local choice_operator = yt.container:create()
+    choice_operator:add_yang_element('operator', yt.string:create())
+    choice_operator:add_yang_element('port', yt.uint16:create())
+    destination_port_choice:add_choice('operator', choice_operator)
+    --destination_port_choice:add_choice('operator', 
+    --destination_port_choice:add_choice('
+    print("[XX] ADDING destination PORT CHOICE " .. json.encode(destination_port_choice:isMandatory()))
+    matches_tcp:add_yang_element('destination-port', destination_port_choice)
+
+    -- this is an augmentation from draft-mud
+    -- TODO: type 'direction' (enum?)
+    matches_tcp:add_yang_element('ietf-mud:direction-initiated', yt.string:create(false))
+
+    matches:add_case('eth', matches_eth)
+    matches:add_case('ipv4', matches_ipv4)
+    matches:add_case('tcp', matches_tcp)
+    matches:add_case('ipv6', matches_ipv6)
+    ace_list:set_entry_element('matches', matches)
+    aces:add_yang_element('ace', ace_list)
+
+    local actions = yt.container:create()
+    -- todo identityref
+    actions:add_yang_element('forwarding', yt.string:create())
+    actions:add_yang_element('logging', yt.string:create(false))
+    
+    ace_list:set_entry_element('actions', actions)
+    acl_list:set_entry_element('aces', aces)
+
+    new_inst.acls = acl_list
 
     return new_inst
   end
@@ -128,8 +231,10 @@ mud_mt = { __index = mud }
   end
 
   function mud:print()
-    self.mud:print()
-    self.acls:print()
+    --self.mud:print()
+    --self.acls:print()
+    local data = self.acls:toData()
+    print(json.encode(data))
   end
 
   function mud:oldprint()
