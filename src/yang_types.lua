@@ -78,7 +78,7 @@ function inheritsFrom( baseClass )
     return new_class
 end
 
--- helper function for deep copying data elements
+-- helper function for deep copying data nodes
 local function deepcopy(orig)
     local orig_type = type(orig)
     local copy
@@ -401,33 +401,31 @@ container_mt = { __index = container }
   function container:create(mandatory)
     local new_inst = BaseType:create("container", mandatory)
     setmetatable(new_inst, container_mt)
-    new_inst.yang_elements = {}
-    -- a container's value is contained in its yang elements
+    new_inst.yang_nodes = {}
+    -- a container's value is contained in its yang nodes
     new_inst.value = nil
     return new_inst
   end
 
-  function container:add_yang_element(element_name, element_type_instance)
-    if element_type_instance == nil then error("container:add_yang_element() called with nil element_type_instance") end
-    self.yang_elements[element_name] = element_type_instance
+  function container:add_node(node_name, node_type_instance)
+    if node_type_instance == nil then error("container:add_node() called with nil node_type_instance") end
+    self.yang_nodes[node_name] = node_type_instance
   end
 
   function container:fromData(json_data, check_all_data_used)
-    for element_name, element in pairs(self.yang_elements) do
-      print("Trying yang element '" .. element_name .. "' (" .. element:getType() .. ")")
-      if json_data[element_name] ~= nil then
-        element:fromData(json_data[element_name])
-        json_data[element_name] = nil
-      elseif element:isMandatory() then
-        --error('mandatory element ' .. element_name .. ' not found in: ' .. json.encode(json_data[element_name]))
-        error('mandatory element ' .. element_name .. ' not found in: ' .. json.encode(json_data))
+    for node_name, node in pairs(self.yang_nodes) do
+      if json_data[node_name] ~= nil then
+        node:fromData(json_data[node_name])
+        json_data[node_name] = nil
+      elseif node:isMandatory() then
+        --error('mandatory node ' .. node_name .. ' not found in: ' .. json.encode(json_data[node_name]))
+        error('mandatory node ' .. node_name .. ' not found in: ' .. json.encode(json_data))
       --else
-      --  print("[XX] element with name " .. element_name .. " has no value but not mandatory: " .. json.encode(element:isMandatory()))
+      --  print("[XX] node with name " .. node_name .. " has no value but not mandatory: " .. json.encode(node:isMandatory()))
       end
     end
     
     if json.encode(json_data) ~= "{}" then
-      print("[XX] TABLE AFTER CONTAINER FROMDATA: " .. json.encode(json_data))
       error("Unhandled data: " .. json.encode(json_data))
     end
   end
@@ -437,12 +435,12 @@ container_mt = { __index = container }
   end
 
   function container:getValueAsString()
-    result = "{ "
-    for element_name, element in pairs(self.yang_elements) do
-      if element:hasValue() then
-        result = result .. "  " .. element_name .. ": " .. element:getValueAsString() .. "\n"
+    local result = "{ "
+    for node_name, node in pairs(self.yang_nodes) do
+      if node:hasValue() then
+        result = result .. "  " .. node_name .. ": " .. node:getValueAsString() .. "\n"
       else
-        result = result .. "  " .. element_name .. ": <not set>\n"
+        result = result .. "  " .. node_name .. ": <not set>\n"
       end
     end
     result = result .. "}\n"
@@ -451,13 +449,19 @@ container_mt = { __index = container }
 
   function container:toData()
     local result = {}
-    for name,value in pairs(self.yang_elements) do
+    for name,value in pairs(self.yang_nodes) do
       local v = value:toData()
-      -- exclude empty elements
-      if name == "eth" then
-        error("yo")
-      end
-      if v ~= nil and (type(v) ~= table or tablelength(v) > 0) then
+      -- exclude empty nodes
+      --print("[XX] CONTAINER TODATA: " .. json.encode(v))
+      if v ~= nil and (type(v) ~= 'table' or tablelength(v) > 0) then
+          print("[XX] ADDING TO CONTAINER: " .. name .. " = " .. json.encode(v))
+          if json.encode(v) == "{}" then
+            print("[XX][XX]")
+            print(v~=nil)
+            print(type(v) ~= 'table')
+            print("[XX][XX]")
+            error("bad, empty data should not be here " .. json.encode(tablelength(v)))
+          end
           result[name] = v
       end
       --  value:toData()
@@ -475,32 +479,31 @@ list_mt = { __index = list }
   function list:create()
     local new_inst = BaseType:create("list")
     setmetatable(new_inst, list_mt)
-    new_inst.entry_elements = {}
+    new_inst.entry_nodes = {}
     -- value is a table of entries, each of which should conform to
-    -- the specification of entry_elements
+    -- the specification of entry_nodes
     new_inst.value = {}
     return new_inst
   end
 
-  function list:set_entry_element(name, element_type_instance)
-    self.entry_elements[name] = element_type_instance
+  function list:set_entry_node(name, node_type_instance)
+    self.entry_nodes[name] = node_type_instance
   end
 
-  function list:add_element()
-    local new_element = container:create()
+  function list:add_node()
+    local new_node = container:create()
     -- TODO: should this be a deep copy?
-    new_element.yang_elements = deepcopy(self.entry_elements)
-    print("[XX] NEW ELEMENT" .. json.encode(new_element.yang_elements))
-    --new_element.value = nil
-    table.insert(self.value, new_element)
-    return new_element
+    new_node.yang_nodes = deepcopy(self.entry_nodes)
+    --new_node.value = nil
+    table.insert(self.value, new_node)
+    return new_node
   end
   -- TODO: should we error on attempts to use getValue and setValue?
 
   function list:fromData(data)
     -- TODO: should we empty our local data to be sure at this point?
     for i,data_el in pairs(data) do
-      local new_el = self:add_element()
+      local new_el = self:add_node()
       new_el:fromData(data_el)
     end
   end
@@ -508,7 +511,7 @@ list_mt = { __index = list }
   function list:getValueAsString()
     local result = " <LIST> [\n"
     for i,v in pairs(self.value) do
-      for name,ye in pairs(v.yang_elements) do
+      for name,ye in pairs(v.yang_nodes) do
         result = result .. "  " .. name .. ": " .. ye:getValueAsString() .. ",\n"
       end
       result = result .. ",\n"
@@ -537,72 +540,17 @@ function tablelength(T)
   return count
 end
 
--- case is a type where one or more of the defined choices can be used
-local case = inheritsFrom(BaseType)
-case_mt = { __index = case }
-  function case:create(mandatory)
-    local new_inst = BaseType:create("case", mandatory)
-    setmetatable(new_inst, case_mt)
-    new_inst.cases = {}
-    -- value is a table of entries, each of which should conform to
-    -- the specification of entry_elements
-    return new_inst
-  end
-
---  function case:setValue(value)
---    -- do we need this?
---    error("Got setValue for: " .. json.encode(value))
---  end
-
-  function case:add_case(name, element_type)
-    self.cases[name] = element_type
-    print("[XX] ADDED CASE FOR " .. name .. " size now: " .. tablelength(self.cases))
-  end
-
-  function case:fromData(data)
-    print("[XX] CASE fromData() data: " .. json.encode(data))
-    for data_name, data_data in pairs(data) do
-      print("[XX] looking for " .. data_name)
-      print("[XX] my data is: " .. json.encode(data_data))
-      local found = false
-      for name,element_type in pairs(self.cases) do
-        print("[XX] found: " .. name)
-        if name == data_name then
-          print("[XX] element_type mandatory: " .. element_type:getType() .. " " .. json.encode(element_type:isMandatory()))
-          element_type:fromData(data_data)
-          found = true
-        end
-        -- todo: improve error
-      end
-      if not found then error("Unknown case value: " .. data_name) end
-    end
-  end
-
-  function case:toData(data)
-    local result = {}
-    print("[XX] toData on case")
-    for name,element in pairs(self.cases) do
-      print("[XX] trying case " .. name .. " in toData")
-      -- TODO: do we need a hasValue() check for all types?
-      --if element:getValue() ~= nil then
-      print("[XX] RAW DATA: " .. json.encode(element))
-      print("[XX] toData: " .. json.encode(element:toData()))
-      result[name] = element:toData()
-      --end
-    end
-    return result
-  end
-_M.case = case
-
--- case is a type where one or more of the defined choices can be used
+-- TODO: can we derive from the definition whether we need to 'remove' the intermediate step?
+-- choice is a type where one or more of the defined choices can be used
 local choice = inheritsFrom(BaseType)
 choice_mt = { __index = choice }
-  function choice:create(mandatory)
+  function choice:create(mandatory, singlechoice)
     local new_inst = BaseType:create("choice", mandatory)
     setmetatable(new_inst, choice_mt)
     new_inst.choices = {}
+    new_inst.singleChoice = singlechoice
     -- value is a table of entries, each of which should conform to
-    -- the specification of entry_elements
+    -- the specification of entry_nodes
     return new_inst
   end
 
@@ -611,31 +559,24 @@ choice_mt = { __index = choice }
 --    error("Got setValue for: " .. json.encode(value))
 --  end
 
-  function choice:add_choice(name, element_type)
-    self.choices[name] = element_type
-    print("[XX] ADDED choice FOR " .. name .. " size now: " .. tablelength(self.choices))
+  function choice:add_choice(name, node_type)
+    self.choices[name] = node_type
   end
 
   function choice:fromData(data)
-    print("[XX] choice fromData() data: " .. json.encode(data))
     for data_name, data_data in pairs(data) do
-      print("[XX] looking for " .. data_name)
-      print("[XX] my data is: " .. json.encode(data_data))
       local found = false
-      for name,element_type in pairs(self.choices) do
-        print("[XX] found: " .. name)
+      for name,node_type in pairs(self.choices) do
         if name == data_name then
-          element_type:fromData(data_data)
+          node_type:fromData(data_data)
           found = true
         end
         -- todo: improve error
       end
       -- fallback (can we remove the above and only use this?
       if not found then
-        print("[XX] TRYING FULL START")
-        for name,element_type in pairs(self.choices) do
-          print("[XX] TRYING FULL PARSE OF " .. json.encode(data))
-          local status = pcall(element_type.fromData, element_type, data)
+        for name,node_type in pairs(self.choices) do
+          local status = pcall(node_type.fromData, node_type, data)
           if status then found = true end
         end
         if not found then error("Unknown choice value: " .. data_name) end
@@ -645,13 +586,22 @@ choice_mt = { __index = choice }
 
   function choice:toData(data)
     local result = {}
-    for name,element in pairs(self.choices) do
+    for name,node in pairs(self.choices) do
       -- TODO: do we need a hasValue() check for all types?
-      --if element:getValue() ~= nil then
-      local v = element:toData()
+      --if node:getValue() ~= nil then
+      local v = node:toData()
       if v ~= nil and (type(v) ~= 'table' or tablelength(v) > 0) then
-        result[name] = element:toData()
+        print("[XX] CHOICE TODATA: " .. json.encode(node:toData()))
+        result[name] = node:toData()
       end
+      -- TODO this seems wrong
+      if self.singleChoice then
+        for n,v in pairs(result) do
+          return v
+        end
+      end
+      print("[XX] RETURNING CHOICE: " .. json.encode(result))
+      print("[XX] CHOICE RESULT SIZE: " .. json.encode(tablelength(result)))
     end
     return result
   end
