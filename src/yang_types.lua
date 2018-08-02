@@ -14,6 +14,71 @@ local json = require("cjson")
 -- do we need basic enumtypes and identitytypes?
 --
 
+-- Concat the contents of the parameter list,
+-- separated by the string delimiter (just like in perl)
+-- example: strjoin(", ", {"Anna", "Bob", "Charlie", "Dolores"})
+function str_join(delimiter, list)
+   local len = table.getn(list)
+   if len == 0 then
+      return "" 
+   end
+   local string = list[1]
+   for i = 2, len do 
+      string = string .. delimiter .. list[i] 
+   end
+   return string
+end
+
+-- split on *non*-matches of the pattern
+-- e.g. str_isplit("a,b,c", ",") -> { ",", "," }
+-- e.g. str_isplit("a,b,c", "[^,]") -> { "a", "b", "c" }
+function str_isplit(str, pattern)
+   local tbl = {}
+   str:gsub(pattern, function(x) tbl[#tbl+1]=x end)
+   return tbl
+end
+
+function str_split(str, substr)
+  local result = {}
+  local cur = str
+  if substr:len() == 0 then error("str_split with empty argument") end
+  local i,j = str:find(substr)
+  while i ~= nil do
+    if j ~= nil then
+      local part = str:sub(0, i-1)
+      print("[XX] storing PART: " .. part)
+      table.insert(result, part)
+      str = str:sub(j+1)
+      print("[XX] rest of STR: " .. str)
+      i,j = str:find(substr)
+    end
+  end
+  table.insert(result, str)
+  print("[XX] done")
+  return result
+end
+
+-- splits the string on the given sub string, but
+-- returns only the first element, and the rest of the original string
+-- if the substring was not found at all, returns nil, <original_string>
+function str_split_one(str, substr)
+  local parts = str_split(str, substr)
+  if table.getn(parts) == 1 then
+    return nil, str
+  else
+    return table.remove(parts, 1), str_join(substr, parts)
+  end
+end
+
+-- returns the name and index of a list path (e.g. acls[3])
+-- returns nil, nil if the first part does not contain a list index
+function get_path_list_index(path)
+  if path ~= nil then
+    local name, index = string.match(path, "^([%w-_]+)%[(%d+)%]")
+    if index ~= nil then return name, tonumber(index) end
+  end
+end
+
 local _M = {}
 -- helper classes for the basic types used in YANG
 -- These classes take care of validation of values, basic conversion,
@@ -68,6 +133,7 @@ function inheritsFrom( baseClass )
             if cur_class == theClass then
                 b_isa = true
             else
+                print("[XX] get superclass of " .. self:getType())
                 cur_class = cur_class:superClass()
             end
         end
@@ -151,6 +217,13 @@ BaseType_mt = { __index = BaseType }
   -- is just the value itself
   function BaseType:toData()
     return self.value
+  end
+
+  -- Returns the first node that matches the given xpath-style path
+  -- foo/bar[1]/value
+  -- returns nil+error if the path cannot be found
+  function BaseType:getNode(path)
+    error("Cannot use getNode on a basic type")
   end
 -- class BaseType not exported
 
@@ -470,6 +543,55 @@ container_mt = { __index = container }
     end
     return result
   end
+
+  function container:getNodeNames()
+    local result = {}
+    for n,_ in pairs(self.yang_nodes) do
+      table.insert(result, n)
+    end
+    return result
+  end
+
+  function container:getNode(path, given_list_index)
+    -- get and remove the first section of the path
+    --local part, rest = path.
+    -- validate it
+    local first, rest = str_split_one(path, "/")
+    local list_name, list_index = get_path_list_index(first)
+    if list_name ~= nil then
+      print("[XX] HAVE LIST NAME: " .. list_name)
+      first = list_name
+    end
+
+    local name_to_find, rest = str_split_one(path, "/")
+    if name_to_find == nil then
+      name_to_find = rest
+      rest = nil
+    end
+    local list_index = nil
+    local list_name, list_index = get_path_list_index(name_to_find)
+    if list_name ~= nil then
+      name_to_find = list_name
+    else
+      print("[XX] NOT A LIST INDEX: " .. name_to_find)
+    end
+
+    print("[XX] NAME TO FIND: " .. name_to_find)
+    if list_index ~= nil then print("[XX] ALSO HAVE INDEX: " .. list_index) end
+
+    if self.yang_nodes[name_to_find] ~= nil then
+      if given_list_index ~= nil then
+        error("list index specified in path on non-list element " .. self:getType() .. " (" .. path .. ")")
+      end
+      if self.yang_nodes[name_to_find] == nil then error("node " .. name_to_find .. " not found in " .. self:getType()) end
+      if rest == nil then
+        return self.yang_nodes[name_to_find]
+      else
+        return self.yang_nodes[name_to_find]:getNode(rest, list_index)
+      end
+    end
+    error("node " .. name_to_find .. " not found in " .. self:getType() .. " subnodes: [ " .. str_join(", ", self:getNodeNames()) .. " ]")
+  end
 _M.container = container
 
 -- we implement lists by making them lists of containers, with
@@ -530,6 +652,22 @@ list_mt = { __index = list }
       table.insert(result, value:toData())
     end
     return result
+  end
+
+  function list:getNode(path, given_list_index)
+    if given_list_index ~= nil then
+      if self.value[given_list_index] == nil then error("Element " .. given_list_index .. " not found in " .. self.getType()) end
+      if path ~= nil then
+        return self.value[given_list_index]:getNode(path)
+      else
+        return self.value[given_list_index]
+      end
+    else
+      local list_name, list_index = get_path_list_index(path)
+      if list_name == nil then
+        error("getNode() on list must specify list index (" .. path .. ")")
+      end
+    end
   end
 _M.list = list
 

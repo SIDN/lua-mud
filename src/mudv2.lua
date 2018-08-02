@@ -115,7 +115,7 @@ ietf_mud_type_mt = { __index = ietf_mud_type }
   function ietf_mud_type:create(mandatory)
     local new_inst = yt.container.create(mandatory)
     -- additional step: add the type name
-    new_inst.typeName = "acl"
+    new_inst.typeName = "mud"
     setmetatable(new_inst, ietf_mud_type_mt)
     new_inst:add_definition()
     return new_inst
