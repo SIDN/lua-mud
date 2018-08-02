@@ -46,15 +46,12 @@ function str_split(str, substr)
   while i ~= nil do
     if j ~= nil then
       local part = str:sub(0, i-1)
-      print("[XX] storing PART: " .. part)
       table.insert(result, part)
       str = str:sub(j+1)
-      print("[XX] rest of STR: " .. str)
       i,j = str:find(substr)
     end
   end
   table.insert(result, str)
-  print("[XX] done")
   return result
 end
 
@@ -527,14 +524,14 @@ container_mt = { __index = container }
       -- exclude empty nodes
       --print("[XX] CONTAINER TODATA: " .. json.encode(v))
       if v ~= nil and (type(v) ~= 'table' or tablelength(v) > 0) then
-          print("[XX] ADDING TO CONTAINER: " .. name .. " = " .. json.encode(v))
-          if json.encode(v) == "{}" then
-            print("[XX][XX]")
-            print(v~=nil)
-            print(type(v) ~= 'table')
-            print("[XX][XX]")
-            error("bad, empty data should not be here " .. json.encode(tablelength(v)))
-          end
+          --print("[XX] ADDING TO CONTAINER: " .. name .. " = " .. json.encode(v))
+          --if json.encode(v) == "{}" then
+          --  print("[XX][XX]")
+          --  print(v~=nil)
+          --  print(type(v) ~= 'table')
+          --  print("[XX][XX]")
+          --  error("bad, empty data should not be here " .. json.encode(tablelength(v)))
+          --end
           result[name] = v
       end
       --  value:toData()
@@ -559,7 +556,6 @@ container_mt = { __index = container }
     local first, rest = str_split_one(path, "/")
     local list_name, list_index = get_path_list_index(first)
     if list_name ~= nil then
-      print("[XX] HAVE LIST NAME: " .. list_name)
       first = list_name
     end
 
@@ -572,12 +568,7 @@ container_mt = { __index = container }
     local list_name, list_index = get_path_list_index(name_to_find)
     if list_name ~= nil then
       name_to_find = list_name
-    else
-      print("[XX] NOT A LIST INDEX: " .. name_to_find)
     end
-
-    print("[XX] NAME TO FIND: " .. name_to_find)
-    if list_index ~= nil then print("[XX] ALSO HAVE INDEX: " .. list_index) end
 
     if self.yang_nodes[name_to_find] ~= nil then
       if given_list_index ~= nil then
@@ -729,7 +720,7 @@ choice_mt = { __index = choice }
       --if node:getValue() ~= nil then
       local v = node:toData()
       if v ~= nil and (type(v) ~= 'table' or tablelength(v) > 0) then
-        print("[XX] CHOICE TODATA: " .. json.encode(node:toData()))
+        --print("[XX] CHOICE TODATA: " .. json.encode(node:toData()))
         result[name] = node:toData()
       end
       -- TODO this seems wrong
@@ -738,8 +729,8 @@ choice_mt = { __index = choice }
           return v
         end
       end
-      print("[XX] RETURNING CHOICE: " .. json.encode(result))
-      print("[XX] CHOICE RESULT SIZE: " .. json.encode(tablelength(result)))
+      --print("[XX] RETURNING CHOICE: " .. json.encode(result))
+      --print("[XX] CHOICE RESULT SIZE: " .. json.encode(tablelength(result)))
     end
     return result
   end
