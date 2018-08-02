@@ -205,13 +205,40 @@ mud_mt = { __index = mud }
   end
 
   function mud:print()
-    --self.mud:print()
-    --self.acls:print()
     local data = {}
     data["ietf-access-control-list:acls"] = self.acls:toData()
     data["ietf-mud:mud"] = self.mud:toData()
     print(json.encode(data))
   end
+
+
+  -- These are functions that might need refactoring into the
+  -- nodes/types system, but we will first develop something that
+  -- produces output (so we can do test-driven refactoring, and
+  -- identify the common and critical code paths)
+  function mud:makeRules()
+    -- first do checks, etc.
+    -- TODO ;)
+
+    -- find out which incoming and which outgoiing rules we have
+    local from_device_acl_nodelist = self.mud:getNode("from-device-policy/access-lists/access-list")
+    print(json.encode(from_device_acl_nodelist:toData()))
+    local from_device_acl_names = {}
+    local from_device_acls = {}
+    for i,node in pairs(from_device_acl_nodelist:getValue()) do
+      local acl_name = node:getNode('name'):toData()
+      -- find with some functionality is definitely needed in types
+      -- but xpath is too complex. need to find right level.
+      
+      table.insert(from_device_acl_names, node:getNode('name'):toData())
+    end
+    print("[XX] from device policies:")
+    print(str_join(", ", from_device_acl_names))
+    --local from_device_acl_names = 
+    
+  end
+
+
 _M.mud = mud
 
 

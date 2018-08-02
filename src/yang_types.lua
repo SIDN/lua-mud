@@ -13,6 +13,8 @@ local json = require("cjson")
 --
 -- do we need basic enumtypes and identitytypes?
 --
+-- should we include the name in instances of the nodes? does that make sense?
+-- does that make the named-choice-items issue any easier, or harder?
 
 -- Concat the contents of the parameter list,
 -- separated by the string delimiter (just like in perl)
