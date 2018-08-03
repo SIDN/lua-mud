@@ -526,6 +526,13 @@ container_mt = { __index = container }
     end
   end
 
+  function container:hasValue()
+    for i,node in pairs(self.yang_nodes) do
+      if node:hasValue() then return true end
+    end
+    return false
+  end
+
   function container:print()
     print(self:getValueAsString())
   end
@@ -602,11 +609,7 @@ container_mt = { __index = container }
       end
       if self.yang_nodes[name_to_find] == nil then error("node " .. name_to_find .. " not found in " .. self:getType()) end
       if rest == nil then
-        print("[Xx] this one!")
-        print("[XX] fullnode: " .. json.encode(self.yang_nodes[name_to_find]))
-        print("[XX] getData: " .. json.encode(self.yang_nodes[name_to_find]:toData()))
-        print("[XX] in callee LEN: " .. tablelength(getmetatable(self.yang_nodes[name_to_find])))
-        return (self.yang_nodes[name_to_find])
+        return self.yang_nodes[name_to_find]
       else
         return self.yang_nodes[name_to_find]:getNode(rest, list_index)
       end
@@ -655,6 +658,10 @@ list_mt = { __index = list }
     return new_node
   end
   -- TODO: should we error on attempts to use getValue and setValue?
+
+  function list:hasValue()
+    return table.getn(self.value) > 0
+  end
 
   function list:fromData(data)
     -- TODO: should we empty our local data to be sure at this point?
@@ -786,6 +793,37 @@ choice_mt = { __index = choice }
     end
     return result
   end
+
+  function choice:hasValue()
+    for name,node in pairs(self.choices) do
+      if node:hasValue() then return true end
+    end
+    return false
+  end
+
+  -- returns the first non-empty choice
+  function choice:getChoice()
+    for name,node in pairs(self.choices) do
+      if node:hasValue() then return node end
+    end
+    error('no choice set')
+  end
+
+
+  -- return all the choice nodes that were set
+  function choice:getChoices()
+    local result = {}
+    for name,node in pairs(self.choices) do
+      -- TODO: yeah we really need a hasValue() check
+      local v = node:toData()
+      if v ~= nil and (type(v) ~= 'table' or tablelength(v) > 0) then
+        --print("[XX] CHOICE TODATA: " .. json.encode(node:toData()))
+        table.insert(result, node)
+      end
+    end
+    return result
+  end
+
 _M.choice = choice
 
 return _M

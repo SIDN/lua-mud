@@ -175,34 +175,64 @@ local function tdump (tbl, indent)
   end
 end
 
-local function findNodesWithProperty(base_node, node_to_find, property_name, property_value)
-    for i,all_node in pairs(base_node:getAll()) do
-        print("[XX] TRYING NODE TYPE " .. all_node:getType() .. " FOR " .. node_to_find)
-        if all_node:getType() == "container" and all_node:hasNode(node_to_find) then
-            print("[XX] container with " .. node_to_find)
-            local potential_node = all_node:getNode(node_to_find)
-            if potential_node:hasNode(property_name) then
-                local property = potential_node:getNode(property_name)
-                if property:getValue() == property_value then
-                    return potential_node
+local function findNodeWithProperty(base_node, node_to_find, property_name, property_value)
+    for i,potential_node in pairs(base_node:getAll()) do
+        if potential_node:getName() == node_to_find then
+            if potential_node:getType() == 'container' then
+                if potential_node:hasNode(property_name) then
+                    local property = potential_node:getNode(property_name)
+                    if property:getValue() == property_value then
+                        return potential_node
+                    end
                 end
-            end
-            error("node with name " .. node_to_find .. " and property " .. property_name .. " not found")
-            if potential_node:getType() == "list" then
-                error("foo")
-            end
-            for i,ace_node in pairs(ace_nodes:getValue()) do
-                print("[XX] ACE_NODE TYPE: " .. ace_node:getType())
-                if ace_node:hasNode("name") then
-                    print(ace_node:getNode("name"):getValue())
+            elseif potential_node:getType() == "list" then
+                for i,list_node in pairs(potential_node:getValue()) do
+                    if list_node:hasNode("name") and list_node:getNode("name"):getValue() == property_value then
+                        return list_node
+                    end
                 end
-                if ace_node:hasNode("name") and ace_node:getNode("name"):getValue() == n then
-                    print("[XX] WE GOT HIM")
-                end
+            else
+                error("can only use findNodeWithProperty on list or container nodes, not " .. potential_node:getType())
             end
         end
     end
-    --error("node with name " .. node_to_find .. " and property " .. property_name .. " = " .. json.encode(property_value) .. " not found")
+    error("node with name " .. node_to_find .. " and property " .. property_name .. " = " .. json.encode(property_value) .. " not found")
+end
+
+function aceToRules(ace_node)
+    for i,ace in pairs(ace_node:getValue()) do
+        local rule = ""
+        print('[XX] MATCH NODE: ' .. json.encode(ace))
+        for i,match in pairs(ace:getNode('matches'):getChoices()) do
+            print("[XX] MATCH: " .. json.encode(match:toData()))
+            if match:getName() == 'ipv4' then
+                print("[XX] IPV6 MATCH")
+            elseif match:getName() == 'ipv6' then
+            elseif match:getName() == 'tcp' then
+                rule = rule .. "tcp "
+                for j,match_node in pairs(match.yang_nodes) do
+                    print("[XX] HANDLING RULE " .. match_node:getName())
+                    if match_node:hasValue() then
+                        if match_node:getName() == 'ietf-mud:direction-initiated' then
+                            -- TODO: does this have any influence on the actual rule?
+                        elseif match_node:getName() == 'source-port' then
+                            -- TODO: check operator and/or range
+                            rule = rule .. "dport " .. match_node:getChoice():getNode('port'):getValue()
+                        elseif match_node:getName() == 'destination-port' then
+                            -- TODO: check operator and/or range
+                            rule = rule .. "dport " .. match_node:getChoice():getNode('port'):getValue()
+                        else
+                            error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
+                        end
+                    end
+                    print("[XX] match part: " .. json.encode(match_node))
+                end
+            else
+                error('unknown match type: ' .. match:getName())
+            end
+        end
+        print("[XX] [XX] [XX] RULE: " .. rule)
+    end
 end
 
 local mud = {}
@@ -265,51 +295,27 @@ mud_mt = { __index = mud }
 
     -- find out which incoming and which outgoiing rules we have
     local from_device_acl_nodelist = self.mud:getNode("from-device-policy/access-lists/access-list")
-    print(json.encode(from_device_acl_nodelist:toData()))
-    local from_device_acl_names = {}
     -- maybe add something like findNodes("/foo/bar[*]/baz/*/name")?
     for i,node in pairs(from_device_acl_nodelist:getValue()) do
       local acl_name = node:getNode('name'):toData()
       -- find with some functionality is definitely needed in types
       -- but xpath is too complex. need to find right level.
-      table.insert(from_device_acl_names, node:getNode('name'):toData())
-    end
-    print("[XX] from device policies:")
-    print(str_join(", ", from_device_acl_names))
-
-    -- find the actual ACL associated with it (container is called 'ace')
-    --local from_device_acl_names =
-    -- and here we need something like findNodes("access-list[name='aaa']")
-    local from_device_acls = {}
-    for i,n in pairs(from_device_acl_names) do
-        local found = false
-        local acl = findNodesWithProperty(self.acls, "acl", "name", n)
-        --print("[XX] FOUND IT: " .. acl:getType())
-
-        -- findNodesWherePropertyIs
-        --for i,all_node in pairs(self.acls:getAll()) do
-            --rint("[XX] NODE: " .. all_node:getType())
-            -- this would find all "ace" nodes with the given name
-            --if all_node:getType() == "container" and all_node:hasNode("ace") then
-            --    print("[XX] container with ace")
-            --    local ace_nodes = all_node:getNode("ace")
-            --    for i,ace_node in pairs(ace_nodes:getValue()) do
-            --        print("[XX] ACE_NODE TYPE: " .. ace_node:getType())
-            --        if ace_node:hasNode("name") then
-            --            print(ace_node:getNode("name"):getValue())
-            --        end
-            --        if ace_node:hasNode("name") and ace_node:getNode("name"):getValue() == n then
-            --            print("[XX] WE GOT HIM")
-            --        end
-            --    end
-            --end
-
-            -- find all 'acl' nodes with the given name
-        --end
-        --if not found then error("ACL with name " .. n .. " not found in acl list") end
+      local found = false
+      local acl = findNodeWithProperty(self.acls, "acl", "name", acl_name)
+      aceToRules(acl:getNode('aces'):getNode('ace'))
     end
 
-    print(json.encode(self.acls:toData()))
+    local to_device_acl_nodelist = self.mud:getNode("to-device-policy/access-lists/access-list")
+    -- maybe add something like findNodes("/foo/bar[*]/baz/*/name")?
+    for i,node in pairs(to_device_acl_nodelist:getValue()) do
+      local acl_name = node:getNode('name'):toData()
+      -- find with some functionality is definitely needed in types
+      -- but xpath is too complex. need to find right level.
+      local found = false
+      local acl = findNodeWithProperty(self.acls, "acl", "name", acl_name)
+      aceToRules(acl:getNode('aces'):getNode('ace'))
+    end
+
 
   end
 
