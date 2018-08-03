@@ -87,9 +87,15 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     -- TODO: type 'direction' (enum?)
     matches_tcp:add_node(yt.string:create('ietf-mud:direction-initiated', false))
 
+    local matches_udp = yt.container:create('udp')
+    matches_udp:add_node(yt.uint16:create('length', false))
+    matches_udp:add_node(deepcopy(source_port_choice))
+    matches_udp:add_node(deepcopy(destination_port_choice))
+
     matches:add_choice('eth', matches_eth)
     matches:add_choice('ipv4', matches_ipv4)
     matches:add_choice('tcp', matches_tcp)
+    matches:add_choice('udp', matches_tcp)
     matches:add_choice('ipv6', matches_ipv6)
     ace_list:set_entry_node(matches)
     aces:add_node(ace_list)
@@ -208,7 +214,22 @@ function aceToRules(ace_node)
         for i,match in pairs(ace:getNode('matches'):getChoices()) do
             if match:getName() == 'ipv4' then
                 v6_or_v4 = "ip "
-                error('todo')
+                for j,match_node in pairs(match.yang_nodes) do
+                    if match_node:hasValue() then
+                        if match_node:getName() == 'ietf-acldns:dst-dnsname' then
+                            rulematches = rulematches .. "daddr " .. match_node:toData() .. " "
+                        elseif match_node:getName() == 'ietf-acldns:src-dnsname' then
+                            rulematches = rulematches .. "saddr " .. match_node:toData() .. " "
+                        elseif match_node:getName() == 'protocol' then
+                            -- this is done by virtue of it being an ipv6 option
+                        elseif match_node:getName() == 'destination-port' then
+                            -- TODO: check operator and/or range
+                            rulematches = rulematches .. "dport " .. match_node:getChoice():getNode('port'):getValue() .. " "
+                        else
+                            error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
+                        end
+                    end
+                end
             elseif match:getName() == 'ipv6' then
                 v6_or_v4 = "ip6 "
                 for j,match_node in pairs(match.yang_nodes) do
@@ -263,7 +284,8 @@ function aceToRules(ace_node)
             error('currently, we need either an ipv4 or ipv6 rule')
         end
         if direction == nil then
-            error('must have a direction-initiated')
+            -- TODO: how to determine chain/
+            direction = "forward "
         end
         rule = rulestart .. direction .. v6_or_v4 .. rulematches .. rule_action
         table.insert(rules, rule)

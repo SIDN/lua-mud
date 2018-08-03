@@ -151,7 +151,7 @@ function inheritsFrom( baseClass )
 end
 
 -- helper function for deep copying data nodes
-local function deepcopy(orig)
+function deepcopy(orig)
     local orig_type = type(orig)
     local copy
     if orig_type == 'table' then
@@ -178,6 +178,7 @@ BaseType_mt = { __index = BaseType }
     new_inst.value = nil
     new_inst.typeName = typeName
     new_inst.nodeName = nodeName
+    new_inst.parent = nil
     if mandatory ~= nil then
       new_inst.mandatory = mandatory
     else
@@ -247,6 +248,23 @@ BaseType_mt = { __index = BaseType }
     local result = {}
     table.insert(result, self)
     return result
+  end
+
+  function BaseType:getParent()
+    return self.parent
+  end
+
+  function BaseType:setParent(node)
+    self.parent = node
+  end
+
+  function BaseType:getPath()
+    -- TODO: make a specific one for list, it needs the index
+    if self:getParent() ~= nil then
+      return self:getParent():getPath() .. "/" .. self:getName()
+    else
+      return self:getName()
+    end
   end
 -- class BaseType not exported
 
@@ -512,6 +530,7 @@ container_mt = { __index = container }
     for node_name, node in pairs(self.yang_nodes) do
       if json_data[node_name] ~= nil then
         node:fromData(json_data[node_name])
+        node:setParent(self)
         json_data[node_name] = nil
       elseif node:isMandatory() then
         --error('mandatory node ' .. node_name .. ' not found in: ' .. json.encode(json_data[node_name]))
@@ -631,6 +650,16 @@ container_mt = { __index = container }
   end
 _M.container = container
 
+function get_index_of(list, element)
+  for i,v in pairs(list) do
+    if v == element then
+      print("[XX] yooy: " .. i)
+      return i
+    end
+  end
+  error('element not found in list')
+end
+
 -- we implement lists by making them lists of containers, with
 -- an interface that skips the container part (mostly)
 local list = inheritsFrom(BaseType)
@@ -655,6 +684,11 @@ list_mt = { __index = list }
     new_node.yang_nodes = deepcopy(self.entry_nodes)
     --new_node.value = nil
     table.insert(self.value, new_node)
+
+    -- update the childs getPath so it adds the list index
+    function new_node:getPath()
+      return self:getParent():getPath() .. "[" .. get_index_of(self:getParent():getValue(), self) .. "]"
+    end
     return new_node
   end
   -- TODO: should we error on attempts to use getValue and setValue?
@@ -668,6 +702,7 @@ list_mt = { __index = list }
     for i,data_el in pairs(data) do
       local new_el = self:add_node()
       new_el:fromData(data_el)
+      new_el:setParent(self)
     end
   end
 
@@ -719,6 +754,7 @@ list_mt = { __index = list }
     end
     return result
   end
+
 _M.list = list
 
 -- TODO: remove
