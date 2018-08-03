@@ -5,20 +5,22 @@ local lu = require("luaunit")
 
 local json = require("cjson")
 
-TestMud = {} --class
-  function TestMud:setup()
+TestMudFileReader = {} --class
+  function TestMudFileReader:setup()
     self.a = mu.mud.create()
     self.b = mu.mud.create()
   end
 
-  function TestMud:testDraftExample()
-    self.a = mu.mud.create()
+  function TestMudFileReader:testDraftExample()
     self.a:parseFile("../examples/example_from_draft.json")
-    --self.a:parseFile("/tmp/mini-example.json")
-    self.a:print()
   end
 
-  function TestMud:testGetNode()
+  function TestMudFileReader:testMudMakerExample()
+    self.a:parseFile("../examples/example_from_mudmaker.json")
+    --self.a:print()
+  end
+
+  function TestMudFileReader:testGetNode()
     self.a = mu.mud.create()
     self.a:parseFile("../examples/example_from_draft.json")
 
