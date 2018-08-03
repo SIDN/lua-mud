@@ -139,7 +139,6 @@ ietf_mud_type_mt = { __index = ietf_mud_type }
     local access_lists_list = yt.list:create('access-list')
     -- todo: references
     access_lists_list:set_entry_node(yt.string:create('name'))
-    print("[XX] ACLL NAME: " .. access_lists_list:getName())
     access_lists:add_node(access_lists_list)
     -- this seems to be a difference between the example and the definition
     from_device_policy:add_node(access_lists)
@@ -200,22 +199,19 @@ local function findNodeWithProperty(base_node, node_to_find, property_name, prop
 end
 
 function aceToRules(ace_node)
+    local rules = {}
     for i,ace in pairs(ace_node:getValue()) do
         local rulestart = "nft add rule inet "
         local v6_or_v4 = nil
         local direction = nil
         local rulematches = ""
-        print('[XX] MATCH NODE: ' .. json.encode(ace))
         for i,match in pairs(ace:getNode('matches'):getChoices()) do
-            print("[XX] MATCH: " .. json.encode(match:toData()))
             if match:getName() == 'ipv4' then
                 v6_or_v4 = "ip "
                 error('todo')
             elseif match:getName() == 'ipv6' then
                 v6_or_v4 = "ip6 "
-                print("[XX] [XX] " .. json.encode(match:toData()))
                 for j,match_node in pairs(match.yang_nodes) do
-                    print("[XX] HANDLING RULE " .. match_node:getName())
                     if match_node:hasValue() then
                         if match_node:getName() == 'ietf-acldns:dst-dnsname' then
                             rulematches = rulematches .. "daddr " .. match_node:toData() .. " "
@@ -230,14 +226,12 @@ function aceToRules(ace_node)
                             error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
                         end
                     end
-                    print("[XX] match part: " .. json.encode(match_node))
                 end
                 -- TODO
                 -- TODO
             elseif match:getName() == 'tcp' then
                 rulematches = rulematches .. "tcp "
                 for j,match_node in pairs(match.yang_nodes) do
-                    --print("[XX] HANDLING RULE " .. match_node:getName())
                     if match_node:hasValue() then
                         if match_node:getName() == 'ietf-mud:direction-initiated' then
                             -- TODO: does this have any influence on the actual rule?
@@ -258,14 +252,12 @@ function aceToRules(ace_node)
                             error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
                         end
                     end
-                    --print("[XX] match part: " .. json.encode(match_node))
                 end
             else
                 error('unknown match type: ' .. match:getName())
             end
         end
 
-        print("[XX] ACE NODE: " .. json.encode(ace_node:toData()))
         local rule_action = ace:getNode("actions/forwarding"):getValue()
         if v6_or_v4 == nil then
             error('currently, we need either an ipv4 or ipv6 rule')
@@ -274,8 +266,9 @@ function aceToRules(ace_node)
             error('must have a direction-initiated')
         end
         rule = rulestart .. direction .. v6_or_v4 .. rulematches .. rule_action
-        print("[XX] [XX] [XX] RULE: " .. rule)
+        table.insert(rules, rule)
     end
+    return rules
 end
 
 local mud = {}
@@ -336,6 +329,7 @@ mud_mt = { __index = mud }
     -- first do checks, etc.
     -- TODO ;)
 
+    local rules = {}
     -- find out which incoming and which outgoiing rules we have
     local from_device_acl_nodelist = self.mud:getNode("from-device-policy/access-lists/access-list")
     -- maybe add something like findNodes("/foo/bar[*]/baz/*/name")?
@@ -345,7 +339,7 @@ mud_mt = { __index = mud }
       -- but xpath is too complex. need to find right level.
       local found = false
       local acl = findNodeWithProperty(self.acls, "acl", "name", acl_name)
-      aceToRules(acl:getNode('aces'):getNode('ace'))
+      table_extend(rules, aceToRules(acl:getNode('aces'):getNode('ace')))
     end
 
     local to_device_acl_nodelist = self.mud:getNode("to-device-policy/access-lists/access-list")
@@ -356,10 +350,9 @@ mud_mt = { __index = mud }
       -- but xpath is too complex. need to find right level.
       local found = false
       local acl = findNodeWithProperty(self.acls, "acl", "name", acl_name)
-      aceToRules(acl:getNode('aces'):getNode('ace'))
+      table_extend(rules, aceToRules(acl:getNode('aces'):getNode('ace')))
     end
-
-
+    return rules
   end
 
 

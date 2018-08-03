@@ -12,7 +12,12 @@ TestMud = {} --class
   end
 
   function TestMud:testMakeRules()
-    self.a:makeRules()
+    local rules = self.a:makeRules()
+    local expect = {
+      "nft add rule inet filter output ip6 daddr test.example.com tcp dport 443 accept",
+      "nft add rule inet filter output ip6 saddr test.example.com tcp sport 443 accept"
+    }
+    lu.assertEquals(rules, expect)
   end
 -- class testMud
 
