@@ -201,36 +201,79 @@ end
 
 function aceToRules(ace_node)
     for i,ace in pairs(ace_node:getValue()) do
-        local rule = ""
+        local rulestart = "nft add rule inet "
+        local v6_or_v4 = nil
+        local direction = nil
+        local rulematches = ""
         print('[XX] MATCH NODE: ' .. json.encode(ace))
         for i,match in pairs(ace:getNode('matches'):getChoices()) do
             print("[XX] MATCH: " .. json.encode(match:toData()))
             if match:getName() == 'ipv4' then
-                print("[XX] IPV6 MATCH")
+                v6_or_v4 = "ip "
+                error('todo')
             elseif match:getName() == 'ipv6' then
-            elseif match:getName() == 'tcp' then
-                rule = rule .. "tcp "
+                v6_or_v4 = "ip6 "
+                print("[XX] [XX] " .. json.encode(match:toData()))
                 for j,match_node in pairs(match.yang_nodes) do
                     print("[XX] HANDLING RULE " .. match_node:getName())
                     if match_node:hasValue() then
-                        if match_node:getName() == 'ietf-mud:direction-initiated' then
-                            -- TODO: does this have any influence on the actual rule?
-                        elseif match_node:getName() == 'source-port' then
-                            -- TODO: check operator and/or range
-                            rule = rule .. "dport " .. match_node:getChoice():getNode('port'):getValue()
+                        if match_node:getName() == 'ietf-acldns:dst-dnsname' then
+                            rulematches = rulematches .. "daddr " .. match_node:toData() .. " "
+                        elseif match_node:getName() == 'ietf-acldns:src-dnsname' then
+                            rulematches = rulematches .. "saddr " .. match_node:toData() .. " "
+                        elseif match_node:getName() == 'protocol' then
+                            -- this is done by virtue of it being an ipv6 option
                         elseif match_node:getName() == 'destination-port' then
                             -- TODO: check operator and/or range
-                            rule = rule .. "dport " .. match_node:getChoice():getNode('port'):getValue()
+                            rulematches = rulematches .. "dport " .. match_node:getChoice():getNode('port'):getValue() .. " "
                         else
                             error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
                         end
                     end
                     print("[XX] match part: " .. json.encode(match_node))
                 end
+                -- TODO
+                -- TODO
+            elseif match:getName() == 'tcp' then
+                rulematches = rulematches .. "tcp "
+                for j,match_node in pairs(match.yang_nodes) do
+                    --print("[XX] HANDLING RULE " .. match_node:getName())
+                    if match_node:hasValue() then
+                        if match_node:getName() == 'ietf-mud:direction-initiated' then
+                            -- TODO: does this have any influence on the actual rule?
+                            if match_node:toData() == 'from-device' then
+                                direction = "filter output "
+                            elseif match_node:toData() == 'to-device' then
+                                direction = "filter input "
+                            else
+                                error('unknown direction-initiated: ' .. match_node:toData())
+                            end
+                        elseif match_node:getName() == 'source-port' then
+                            -- TODO: check operator and/or range
+                            rulematches = rulematches .. "sport " .. match_node:getChoice():getNode('port'):getValue() .. " "
+                        elseif match_node:getName() == 'destination-port' then
+                            -- TODO: check operator and/or range
+                            rulematches = rulematches .. "dport " .. match_node:getChoice():getNode('port'):getValue() .. " "
+                        else
+                            error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
+                        end
+                    end
+                    --print("[XX] match part: " .. json.encode(match_node))
+                end
             else
                 error('unknown match type: ' .. match:getName())
             end
         end
+
+        print("[XX] ACE NODE: " .. json.encode(ace_node:toData()))
+        local rule_action = ace:getNode("actions/forwarding"):getValue()
+        if v6_or_v4 == nil then
+            error('currently, we need either an ipv4 or ipv6 rule')
+        end
+        if direction == nil then
+            error('must have a direction-initiated')
+        end
+        rule = rulestart .. direction .. v6_or_v4 .. rulematches .. rule_action
         print("[XX] [XX] [XX] RULE: " .. rule)
     end
 end
@@ -322,5 +365,28 @@ mud_mt = { __index = mud }
 
 _M.mud = mud
 
+--
+-- currently, we assume the following initialization
+-- # nft flush ruleset
+--
+-- Add a table:
+--
+-- # nft add table inet filter
+--
+-- Add the input, forward, and output base chains. The policy for input and forward will be to drop. The policy for output will be to accept.
+--
+-- # nft add chain inet filter input { type filter hook input priority 0 \; policy drop \; }
+-- # nft add chain inet filter forward { type filter hook forward priority 0 \; policy drop \; }
+-- # nft add chain inet filter output { type filter hook output priority 0 \; policy accept \; }
+--
+-- Add two regular chains that will be associated with tcp and udp:
+--
+-- # nft add chain inet filter TCP
+-- # nft add chain inet filter UDP
+--
+-- Related and established traffic will be accepted:
+--
+-- # nft add rule inet filter input ct state related,established accept
+--
 
 return _M
