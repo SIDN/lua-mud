@@ -16,17 +16,24 @@ local json = require("cjson")
 -- should we include the name in instances of the nodes? does that make sense?
 -- does that make the named-choice-items issue any easier, or harder?
 
+-- extend t1 with all the elements of t2
+function table_extend(t1, t2)
+  for i,v in pairs(t2) do
+    table.insert(t1, v)
+  end
+end
+
 -- Concat the contents of the parameter list,
 -- separated by the string delimiter (just like in perl)
 -- example: strjoin(", ", {"Anna", "Bob", "Charlie", "Dolores"})
 function str_join(delimiter, list)
    local len = table.getn(list)
    if len == 0 then
-      return "" 
+      return ""
    end
    local string = list[1]
-   for i = 2, len do 
-      string = string .. delimiter .. list[i] 
+   for i = 2, len do
+      string = string .. delimiter .. list[i]
    end
    return string
 end
@@ -161,17 +168,26 @@ end
 
 local BaseType = {}
 BaseType_mt = { __index = BaseType }
-  function BaseType:create(typeName, mandatory)
+  function BaseType:create(typeName, nodeName, mandatory)
+    if type(nodeName) ~= 'string' then
+      print("NODENAME: " .. nodeName)
+      error("missing mandatory argument nodeName in yang_type:create() for " .. typeName)
+    end
     local new_inst = {}
     setmetatable(new_inst, BaseType)
     new_inst.value = nil
     new_inst.typeName = typeName
+    new_inst.nodeName = nodeName
     if mandatory ~= nil then
       new_inst.mandatory = mandatory
     else
       new_inst.mandatory = true
     end
     return new_inst
+  end
+
+  function BaseType:getName()
+    return self.nodeName
   end
 
   function BaseType:getType()
@@ -224,13 +240,21 @@ BaseType_mt = { __index = BaseType }
   function BaseType:getNode(path)
     error("Cannot use getNode on a basic type")
   end
+
+  -- Returns all the child nodes as a list; for simple types,
+  -- this returns a list with the node itself as its only content
+  function BaseType:getAll()
+    local result = {}
+    table.insert(result, self)
+    return result
+  end
 -- class BaseType not exported
 
 
 local uint8 = inheritsFrom(BaseType)
 uint8_mt = { __index = uint8 }
-  function uint8:create(mandatory)
-    local new_inst = BaseType:create("uint8", mandatory)
+  function uint8:create(nodeName, mandatory)
+    local new_inst = BaseType:create("uint8", nodeName, mandatory)
     setmetatable(new_inst, uint8_mt)
     return new_inst
   end
@@ -250,8 +274,8 @@ _M.uint8 = uint8
 
 local uint16 = inheritsFrom(BaseType)
 uint16_mt = { __index = uint16 }
-  function uint16:create(mandatory)
-    local new_inst = BaseType:create("uint16", mandatory)
+  function uint16:create(nodeName, mandatory)
+    local new_inst = BaseType:create("uint16", nodeName, mandatory)
     setmetatable(new_inst, uint16_mt)
     return new_inst
   end
@@ -271,8 +295,8 @@ _M.uint16 = uint16
 
 local uint32 = inheritsFrom(BaseType)
 uint32_mt = { __index = uint32 }
-  function uint32:create(mandatory)
-    local new_inst = BaseType:create("uint32", mandatory)
+  function uint32:create(nodeName, mandatory)
+    local new_inst = BaseType:create("uint32", nodeName, mandatory)
     setmetatable(new_inst, uint32_mt)
     return new_inst
   end
@@ -293,8 +317,8 @@ _M.uint32 = uint32
 
 local boolean = inheritsFrom(BaseType)
 boolean_mt = { __index = boolean }
-  function boolean:create(mandatory)
-    local new_inst = BaseType:create("boolean", mandatory)
+  function boolean:create(nodeName, mandatory)
+    local new_inst = BaseType:create("boolean", nodeName, mandatory)
     setmetatable(new_inst, boolean_mt)
     return new_inst
   end
@@ -310,8 +334,8 @@ _M.boolean = boolean
 
 local inet_uri = inheritsFrom(BaseType)
 inet_uri_mt = { __index = inet_uri }
-  function inet_uri:create(mandatory)
-    local new_inst = BaseType:create("inet:uri", mandatory)
+  function inet_uri:create(nodeName, mandatory)
+    local new_inst = BaseType:create("inet:uri", nodeName, mandatory)
     setmetatable(new_inst, inet_uri_mt)
     return new_inst
   end
@@ -331,8 +355,8 @@ _M.inet_uri = inet_uri
 
 local yang_date_and_time = inheritsFrom(BaseType)
 yang_date_and_time_mt = { __index = yang_date_and_time }
-  function yang_date_and_time:create(mandatory)
-    local new_inst = BaseType:create("yang:date-and-time", mandatory)
+  function yang_date_and_time:create(nodeName, mandatory)
+    local new_inst = BaseType:create("yang:date-and-time", nodeName, mandatory)
     setmetatable(new_inst, yang_date_and_time_mt)
     return new_inst
   end
@@ -353,8 +377,8 @@ _M.yang_date_and_time = yang_date_and_time
 
 local yang_mac_address = inheritsFrom(BaseType)
 yang_mac_address_mt = { __index = yang_mac_address }
-  function yang_mac_address:create(mandatory)
-    local new_inst = BaseType:create("inet:uri", mandatory)
+  function yang_mac_address:create(nodeName, mandatory)
+    local new_inst = BaseType:create("inet:uri", nodeName, mandatory)
     setmetatable(new_inst, yang_mac_address_mt)
     return new_inst
   end
@@ -373,8 +397,8 @@ _M.yang_mac_address = yang_mac_address
 
 local eth_ethertype = inheritsFrom(BaseType)
 eth_ethertype_mt = { __index = eth_ethertype }
-  function eth_ethertype:create(mandatory)
-    local new_inst = BaseType:create("inet:uri", mandatory)
+  function eth_ethertype:create(nodeName, mandatory)
+    local new_inst = BaseType:create("inet:uri", nodeName, mandatory)
     setmetatable(new_inst, eth_ethertype_mt)
     return new_inst
   end
@@ -386,8 +410,8 @@ _M.eth_ethertype = eth_ethertype
 
 local inet_dscp = inheritsFrom(BaseType)
 inet_dscp_mt = { __index = inet_dscp }
-  function inet_dscp:create(mandatory)
-    local new_inst = BaseType:create("inet:uri", mandatory)
+  function inet_dscp:create(nodeName, mandatory)
+    local new_inst = BaseType:create("inet:uri", nodeName, mandatory)
     setmetatable(new_inst, inet_dscp_mt)
     return new_inst
   end
@@ -399,8 +423,8 @@ _M.inet_dscp = inet_dscp
 
 local bits = inheritsFrom(BaseType)
 bits_mt = { __index = bits }
-  function bits:create(mandatory)
-    local new_inst = BaseType:create("inet:uri", mandatory)
+  function bits:create(nodeName, mandatory)
+    local new_inst = BaseType:create("inet:uri", nodeName, mandatory)
     setmetatable(new_inst, bits_mt)
     return new_inst
   end
@@ -413,8 +437,8 @@ _M.bits = bits
 
 local string = inheritsFrom(BaseType)
 string_mt = { __index = string }
-  function string:create(mandatory)
-    local new_inst = BaseType:create("string", mandatory)
+  function string:create(nodeName, mandatory)
+    local new_inst = BaseType:create("string", nodeName, mandatory)
     setmetatable(new_inst, string_mt)
     return new_inst
   end
@@ -430,8 +454,8 @@ _M.string = string
 
 local notimplemented = inheritsFrom(BaseType)
 notimplemented_mt = { __index = notimplemented }
-  function notimplemented:create(mandatory)
-    local new_inst = BaseType:create("notimplemented", mandatory)
+  function notimplemented:create(nodeName, mandatory)
+    local new_inst = BaseType:create("notimplemented", nodeName, mandatory)
     setmetatable(new_inst, notimplemented_mt)
     return new_inst
   end
@@ -445,8 +469,8 @@ _M.notimplemented = notimplemented
 
 local acl_type = inheritsFrom(BaseType)
 acl_type_mt = { __index = acl_type }
-  function acl_type:create(mandatory)
-    local new_inst = BaseType:create("acl-type", mandatory)
+  function acl_type:create(nodeName, mandatory)
+    local new_inst = BaseType:create("acl-type", nodeName, mandatory)
     setmetatable(new_inst, acl_type_mt)
     return new_inst
   end
@@ -470,8 +494,8 @@ _M.acl_type = acl_type
 -- essentially, it's the 'main' holder of definitions and data
 local container = inheritsFrom(BaseType)
 container_mt = { __index = container }
-  function container:create(mandatory)
-    local new_inst = BaseType:create("container", mandatory)
+  function container:create(nodeName, mandatory)
+    local new_inst = BaseType:create("container", nodeName, mandatory)
     setmetatable(new_inst, container_mt)
     new_inst.yang_nodes = {}
     -- a container's value is contained in its yang nodes
@@ -479,9 +503,9 @@ container_mt = { __index = container }
     return new_inst
   end
 
-  function container:add_node(node_name, node_type_instance)
+  function container:add_node(node_type_instance)
     if node_type_instance == nil then error("container:add_node() called with nil node_type_instance") end
-    self.yang_nodes[node_name] = node_type_instance
+    self.yang_nodes[node_type_instance:getName()] = node_type_instance
   end
 
   function container:fromData(json_data, check_all_data_used)
@@ -496,7 +520,7 @@ container_mt = { __index = container }
       --  print("[XX] node with name " .. node_name .. " has no value but not mandatory: " .. json.encode(node:isMandatory()))
       end
     end
-    
+
     if json.encode(json_data) ~= "{}" then
       error("Unhandled data: " .. json.encode(json_data))
     end
@@ -578,12 +602,29 @@ container_mt = { __index = container }
       end
       if self.yang_nodes[name_to_find] == nil then error("node " .. name_to_find .. " not found in " .. self:getType()) end
       if rest == nil then
-        return self.yang_nodes[name_to_find]
+        print("[Xx] this one!")
+        print("[XX] fullnode: " .. json.encode(self.yang_nodes[name_to_find]))
+        print("[XX] getData: " .. json.encode(self.yang_nodes[name_to_find]:toData()))
+        print("[XX] in callee LEN: " .. tablelength(getmetatable(self.yang_nodes[name_to_find])))
+        return (self.yang_nodes[name_to_find])
       else
         return self.yang_nodes[name_to_find]:getNode(rest, list_index)
       end
     end
     error("node " .. name_to_find .. " not found in " .. self:getType() .. " subnodes: [ " .. str_join(", ", self:getNodeNames()) .. " ]")
+  end
+
+  function container:getAll()
+    local result = {}
+    table.insert(result, self)
+    for i,n in pairs(self.yang_nodes) do
+      table_extend(result, n:getAll())
+    end
+    return result
+  end
+
+  function container:hasNode(node_name)
+    return self.yang_nodes[node_name] ~= nil
   end
 _M.container = container
 
@@ -591,8 +632,8 @@ _M.container = container
 -- an interface that skips the container part (mostly)
 local list = inheritsFrom(BaseType)
 list_mt = { __index = list }
-  function list:create()
-    local new_inst = BaseType:create("list")
+  function list:create(nodeName)
+    local new_inst = BaseType:create("list", nodeName)
     setmetatable(new_inst, list_mt)
     new_inst.entry_nodes = {}
     -- value is a table of entries, each of which should conform to
@@ -601,12 +642,12 @@ list_mt = { __index = list }
     return new_inst
   end
 
-  function list:set_entry_node(name, node_type_instance)
-    self.entry_nodes[name] = node_type_instance
+  function list:set_entry_node(node_type_instance)
+    self.entry_nodes[node_type_instance:getName()] = node_type_instance
   end
 
   function list:add_node()
-    local new_node = container:create()
+    local new_node = container:create('list_entry')
     -- TODO: should this be a deep copy?
     new_node.yang_nodes = deepcopy(self.entry_nodes)
     --new_node.value = nil
@@ -662,6 +703,15 @@ list_mt = { __index = list }
       end
     end
   end
+
+  function list:getAll()
+    local result = {}
+    table.insert(result, self)
+    for i,n in pairs(self.value) do
+      table_extend(result, n:getAll())
+    end
+    return result
+  end
 _M.list = list
 
 -- TODO: remove
@@ -675,8 +725,8 @@ end
 -- choice is a type where one or more of the defined choices can be used
 local choice = inheritsFrom(BaseType)
 choice_mt = { __index = choice }
-  function choice:create(mandatory, singlechoice)
-    local new_inst = BaseType:create("choice", mandatory)
+  function choice:create(nodeName, mandatory, singlechoice)
+    local new_inst = BaseType:create("choice", nodeName, mandatory)
     setmetatable(new_inst, choice_mt)
     new_inst.choices = {}
     new_inst.singleChoice = singlechoice

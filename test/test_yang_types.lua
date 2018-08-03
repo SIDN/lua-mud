@@ -5,12 +5,14 @@ local lu = require('luaunit')
 
 TestUInt8 = {} --class
     function TestUInt8:setup()
-      self.a = yt.uint8.create()
-      self.b = yt.uint8.create()
+      self.a = yt.uint8:create('a')
+      self.b = yt.uint8:create('b')
     end
 
     function TestUInt8:testDefaults()
       lu.assertEquals(self.a:getType(), "uint8")
+      lu.assertEquals(self.a:getName(), 'a')
+      lu.assertEquals(self.b:getName(), 'b')
       lu.assertEquals(self.a:getValue(), nil)
     end
 
@@ -43,12 +45,14 @@ TestUInt8 = {} --class
 
 TestBoolean = {}
   function TestBoolean:setup()
-    self.a = yt.boolean.create()
-    self.b = yt.boolean.create()
+    self.a = yt.boolean:create('a')
+    self.b = yt.boolean:create('b')
   end
 
   function TestBoolean:testDefaults()
     lu.assertEquals(self.b:getType(), "boolean")
+      lu.assertEquals(self.a:getName(), 'a')
+      lu.assertEquals(self.b:getName(), 'b')
     lu.assertEquals(self.b:getValue(), nil)
   end
 
@@ -69,12 +73,14 @@ TestBoolean = {}
 
 TestURI = {}
   function TestURI:setup()
-    self.a = yt.inet_uri.create()
-    self.b = yt.inet_uri.create()
+    self.a = yt.inet_uri:create('a')
+    self.b = yt.inet_uri:create('b')
   end
 
   function TestURI:testDefaults()
     lu.assertEquals(self.a:getType(), "inet:uri")
+      lu.assertEquals(self.a:getName(), 'a')
+      lu.assertEquals(self.b:getName(), 'b')
     lu.assertEquals(self.a:getValue(), nil)
   end
 
@@ -98,9 +104,9 @@ TestURI = {}
 
 TestDateTime = {}
   function TestDateTime:setup()
-    self.a = yt.yang_date_and_time:create()
-    self.b = yt.yang_date_and_time:create()
-    self.c = yt.yang_date_and_time:create()
+    self.a = yt.yang_date_and_time:create('a')
+    self.b = yt.yang_date_and_time:create('b')
+    self.c = yt.yang_date_and_time:create('c')
   end
 
   function TestDateTime:testSet()
@@ -130,8 +136,13 @@ TestDateTime = {}
 
 TestString = {}
   function TestString:setup()
-    self.a = yt.string:create()
-    self.b = yt.string:create()
+    self.a = yt.string:create('a')
+    self.b = yt.string:create('b')
+  end
+
+  function TestString:testDefaults()
+    lu.assertEquals(self.a:getName(), 'a')
+    lu.assertEquals(self.b:getName(), 'b')
   end
 
   function TestString:setValue()
