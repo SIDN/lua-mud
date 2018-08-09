@@ -20,12 +20,12 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
 
   function ietf_access_control_list:add_definition()
     local acl_list = yang.basic_types.list:create('acl')
-    acl_list:set_entry_node(yang.basic_types.string:create('name', true))
-    acl_list:set_entry_node(yang.complex_types.acl_type:create('type', false))
+    acl_list:add_list_node(yang.basic_types.string:create('name', true))
+    acl_list:add_list_node(yang.complex_types.acl_type:create('type', false))
 
     local aces = yang.basic_types.container:create('aces')
     local ace_list = yang.basic_types.list:create('ace')
-    ace_list:set_entry_node(yang.basic_types.string:create('name'))
+    ace_list:add_list_node(yang.basic_types.string:create('name'))
     local matches = yang.basic_types.choice:create('matches')
 
     local matches_eth = yang.basic_types.container:create('eth')
@@ -97,7 +97,7 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches:add_choice('tcp', matches_tcp)
     matches:add_choice('udp', matches_tcp)
     matches:add_choice('ipv6', matches_ipv6)
-    ace_list:set_entry_node(matches)
+    ace_list:add_list_node(matches)
     aces:add_node(ace_list)
 
     local actions = yang.basic_types.container:create('actions')
@@ -105,8 +105,8 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     actions:add_node(yang.basic_types.string:create('forwarding'))
     actions:add_node(yang.basic_types.string:create('logging', false))
 
-    ace_list:set_entry_node(actions)
-    acl_list:set_entry_node(aces)
+    ace_list:add_list_node(actions)
+    acl_list:add_list_node(aces)
 
     -- report: discrepancy between example and definition? (or maybe just tree)
     -- TODO: look up what to do with singular/plural, maybe that is stated somewhere
@@ -144,7 +144,7 @@ ietf_mud_type_mt = { __index = ietf_mud_type }
     local access_lists = yang.basic_types.container:create('access-lists')
     local access_lists_list = yang.basic_types.list:create('access-list')
     -- todo: references
-    access_lists_list:set_entry_node(yang.basic_types.string:create('name'))
+    access_lists_list:add_list_node(yang.basic_types.string:create('name'))
     access_lists:add_node(access_lists_list)
     -- this seems to be a difference between the example and the definition
     from_device_policy:add_node(access_lists)
@@ -154,7 +154,7 @@ ietf_mud_type_mt = { __index = ietf_mud_type }
     local access_lists = yang.basic_types.container:create('access-lists')
     local access_lists_list = yang.basic_types.list:create('access-list')
     -- todo: references
-    access_lists_list:set_entry_node(yang.basic_types.string:create('name'))
+    access_lists_list:add_list_node(yang.basic_types.string:create('name'))
     access_lists:add_node(access_lists_list)
     -- this seems to be a difference between the example and the definition
     to_device_policy:add_node(access_lists)

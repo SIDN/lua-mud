@@ -8,15 +8,15 @@ local util = require("yang.util")
 
 local _M = {}
 
-local BaseType = {}
-local BaseType_mt = { __index = BaseType }
-  function BaseType:create(typeName, nodeName, mandatory)
+local YangNode = {}
+local YangNode_mt = { __index = YangNode }
+  function YangNode:create(typeName, nodeName, mandatory)
     if type(nodeName) ~= 'string' then
       print("NODENAME: " .. nodeName)
       error("missing mandatory argument nodeName in yang_type:create() for " .. typeName)
     end
     local new_inst = {}
-    setmetatable(new_inst, BaseType)
+    setmetatable(new_inst, YangNode)
     new_inst.value = nil
     new_inst.typeName = typeName
     new_inst.nodeName = nodeName
@@ -29,35 +29,35 @@ local BaseType_mt = { __index = BaseType }
     return new_inst
   end
 
-  function BaseType:getName()
+  function YangNode:getName()
     return self.nodeName
   end
 
-  function BaseType:getType()
+  function YangNode:getType()
     return self.typeName
   end
 
-  function BaseType:getValue()
+  function YangNode:getValue()
     return self.value
   end
 
-  function BaseType:getValueAsString()
+  function YangNode:getValueAsString()
     return tostring(self.value)
   end
 
-  function BaseType:hasValue(value)
+  function YangNode:hasValue(value)
     return self.value ~= nil
   end
 
-  function BaseType:setValue(value)
+  function YangNode:setValue(value)
     error("setValue needs to be implemented in subclass")
   end
 
-  function BaseType:validate()
+  function YangNode:validate()
     error("validate needs to be implemented in subclass")
   end
 
-  function BaseType:isMandatory()
+  function YangNode:isMandatory()
     return self.mandatory
   end
 
@@ -65,7 +65,7 @@ local BaseType_mt = { __index = BaseType }
   -- (so it is not, in fact, json data)
   -- maybe make it 'fromData' or 'fromBasicData' or something?
   -- what does one call data comprising only basic language types
-  function BaseType:fromData(json_data)
+  function YangNode:fromData(json_data)
     -- for basic types, we simply use setValue (which contains the correct checks)
     -- complex types should override this method
     self:setValue(json_data)
@@ -73,34 +73,34 @@ local BaseType_mt = { __index = BaseType }
 
   -- returns the current value as native data; for simple types, this
   -- is just the value itself
-  function BaseType:toData()
+  function YangNode:toData()
     return self.value
   end
 
   -- Returns the first node that matches the given xpath-style path
   -- foo/bar[1]/value
   -- returns nil+error if the path cannot be found
-  function BaseType:getNode(path)
+  function YangNode:getNode(path)
     error("Cannot use getNode on a basic type")
   end
 
   -- Returns all the child nodes as a list; for simple types,
   -- this returns a list with the node itself as its only content
-  function BaseType:getAll()
+  function YangNode:getAll()
     local result = {}
     table.insert(result, self)
     return result
   end
 
-  function BaseType:getParent()
+  function YangNode:getParent()
     return self.parent
   end
 
-  function BaseType:setParent(node)
+  function YangNode:setParent(node)
     self.parent = node
   end
 
-  function BaseType:getPath()
+  function YangNode:getPath()
     -- TODO: make a specific one for list, it needs the index
     if self:getParent() ~= nil then
       return self:getParent():getPath() .. "/" .. self:getName()
@@ -108,13 +108,13 @@ local BaseType_mt = { __index = BaseType }
       return self:getName()
     end
   end
--- class BaseType not exported
-_M.BaseType = BaseType
+-- class YangNode not exported
+_M.YangNode = YangNode
 
-local uint8 = util.subClass(BaseType)
+local uint8 = util.subClass(YangNode)
 uint8_mt = { __index = uint8 }
   function uint8:create(nodeName, mandatory)
-    local new_inst = BaseType:create("uint8", nodeName, mandatory)
+    local new_inst = YangNode:create("uint8", nodeName, mandatory)
     setmetatable(new_inst, uint8_mt)
     return new_inst
   end
@@ -132,10 +132,10 @@ uint8_mt = { __index = uint8 }
   end
 _M.uint8 = uint8
 
-local uint16 = util.subClass(BaseType)
+local uint16 = util.subClass(YangNode)
 uint16_mt = { __index = uint16 }
   function uint16:create(nodeName, mandatory)
-    local new_inst = BaseType:create("uint16", nodeName, mandatory)
+    local new_inst = YangNode:create("uint16", nodeName, mandatory)
     setmetatable(new_inst, uint16_mt)
     return new_inst
   end
@@ -153,10 +153,10 @@ uint16_mt = { __index = uint16 }
   end
 _M.uint16 = uint16
 
-local uint32 = util.subClass(BaseType)
+local uint32 = util.subClass(YangNode)
 uint32_mt = { __index = uint32 }
   function uint32:create(nodeName, mandatory)
-    local new_inst = BaseType:create("uint32", nodeName, mandatory)
+    local new_inst = YangNode:create("uint32", nodeName, mandatory)
     setmetatable(new_inst, uint32_mt)
     return new_inst
   end
@@ -175,10 +175,10 @@ uint32_mt = { __index = uint32 }
 _M.uint32 = uint32
 
 
-local boolean = util.subClass(BaseType)
+local boolean = util.subClass(YangNode)
 boolean_mt = { __index = boolean }
   function boolean:create(nodeName, mandatory)
-    local new_inst = BaseType:create("boolean", nodeName, mandatory)
+    local new_inst = YangNode:create("boolean", nodeName, mandatory)
     setmetatable(new_inst, boolean_mt)
     return new_inst
   end
@@ -192,10 +192,10 @@ boolean_mt = { __index = boolean }
   end
 _M.boolean = boolean
 
-local inet_uri = util.subClass(BaseType)
+local inet_uri = util.subClass(YangNode)
 inet_uri_mt = { __index = inet_uri }
   function inet_uri:create(nodeName, mandatory)
-    local new_inst = BaseType:create("inet:uri", nodeName, mandatory)
+    local new_inst = YangNode:create("inet:uri", nodeName, mandatory)
     setmetatable(new_inst, inet_uri_mt)
     return new_inst
   end
@@ -213,10 +213,10 @@ inet_uri_mt = { __index = inet_uri }
   end
 _M.inet_uri = inet_uri
 
-local date_and_time = util.subClass(BaseType)
+local date_and_time = util.subClass(YangNode)
 date_and_time_mt = { __index = date_and_time }
   function date_and_time:create(nodeName, mandatory)
-    local new_inst = BaseType:create("yang:date-and-time", nodeName, mandatory)
+    local new_inst = YangNode:create("yang:date-and-time", nodeName, mandatory)
     setmetatable(new_inst, date_and_time_mt)
     return new_inst
   end
@@ -235,10 +235,10 @@ date_and_time_mt = { __index = date_and_time }
   end
 _M.date_and_time = date_and_time
 
-local mac_address = util.subClass(BaseType)
+local mac_address = util.subClass(YangNode)
 mac_address_mt = { __index = mac_address }
   function mac_address:create(nodeName, mandatory)
-    local new_inst = BaseType:create("inet:uri", nodeName, mandatory)
+    local new_inst = YangNode:create("inet:uri", nodeName, mandatory)
     setmetatable(new_inst, mac_address_mt)
     return new_inst
   end
@@ -255,10 +255,10 @@ mac_address_mt = { __index = mac_address }
   end
 _M.mac_address = mac_address
 
-local eth_ethertype = util.subClass(BaseType)
+local eth_ethertype = util.subClass(YangNode)
 eth_ethertype_mt = { __index = eth_ethertype }
   function eth_ethertype:create(nodeName, mandatory)
-    local new_inst = BaseType:create("inet:uri", nodeName, mandatory)
+    local new_inst = YangNode:create("inet:uri", nodeName, mandatory)
     setmetatable(new_inst, eth_ethertype_mt)
     return new_inst
   end
@@ -268,10 +268,10 @@ eth_ethertype_mt = { __index = eth_ethertype }
   end
 _M.eth_ethertype = eth_ethertype
 
-local inet_dscp = util.subClass(BaseType)
+local inet_dscp = util.subClass(YangNode)
 inet_dscp_mt = { __index = inet_dscp }
   function inet_dscp:create(nodeName, mandatory)
-    local new_inst = BaseType:create("inet:uri", nodeName, mandatory)
+    local new_inst = YangNode:create("inet:uri", nodeName, mandatory)
     setmetatable(new_inst, inet_dscp_mt)
     return new_inst
   end
@@ -281,10 +281,10 @@ inet_dscp_mt = { __index = inet_dscp }
   end
 _M.inet_dscp = inet_dscp
 
-local bits = util.subClass(BaseType)
+local bits = util.subClass(YangNode)
 bits_mt = { __index = bits }
   function bits:create(nodeName, mandatory)
-    local new_inst = BaseType:create("inet:uri", nodeName, mandatory)
+    local new_inst = YangNode:create("inet:uri", nodeName, mandatory)
     setmetatable(new_inst, bits_mt)
     return new_inst
   end
@@ -295,10 +295,10 @@ bits_mt = { __index = bits }
 _M.bits = bits
 
 
-local string = util.subClass(BaseType)
+local string = util.subClass(YangNode)
 string_mt = { __index = string }
   function string:create(nodeName, mandatory)
-    local new_inst = BaseType:create("string", nodeName, mandatory)
+    local new_inst = YangNode:create("string", nodeName, mandatory)
     setmetatable(new_inst, string_mt)
     return new_inst
   end
@@ -312,10 +312,10 @@ string_mt = { __index = string }
   end
 _M.string = string
 
-local notimplemented = util.subClass(BaseType)
+local notimplemented = util.subClass(YangNode)
 notimplemented_mt = { __index = notimplemented }
   function notimplemented:create(nodeName, mandatory)
-    local new_inst = BaseType:create("notimplemented", nodeName, mandatory)
+    local new_inst = YangNode:create("notimplemented", nodeName, mandatory)
     setmetatable(new_inst, notimplemented_mt)
     return new_inst
   end
@@ -327,10 +327,10 @@ _M.notimplemented = notimplemented
 
 -- a container is the general-purpose holder of data that is not of any specific type
 -- essentially, it's the 'main' holder of definitions and data
-local container = util.subClass(_M.BaseType)
+local container = util.subClass(_M.YangNode)
 container_mt = { __index = container }
   function container:create(nodeName, mandatory)
-    local new_inst = _M.BaseType:create("container", nodeName, mandatory)
+    local new_inst = _M.YangNode:create("container", nodeName, mandatory)
     setmetatable(new_inst, container_mt)
     new_inst.yang_nodes = {}
     -- a container's value is contained in its yang nodes
@@ -469,10 +469,10 @@ _M.container = container
 
 -- we implement lists by making them lists of containers, with
 -- an interface that skips the container part (mostly)
-local list = util.subClass(_M.BaseType)
+local list = util.subClass(_M.YangNode)
 list_mt = { __index = list }
   function list:create(nodeName)
-    local new_inst = _M.BaseType:create("list", nodeName)
+    local new_inst = _M.YangNode:create("list", nodeName)
     setmetatable(new_inst, list_mt)
     new_inst.entry_nodes = {}
     -- value is a table of entries, each of which should conform to
@@ -481,11 +481,18 @@ list_mt = { __index = list }
     return new_inst
   end
 
-  function list:set_entry_node(node_type_instance)
+  -- Add a node definition for the list entries
+  -- Note: this is NOT to add list elements, use create_list_element()
+  -- for that. This is to define what those elements should look like
+  function list:add_list_node(node_type_instance)
     self.entry_nodes[node_type_instance:getName()] = node_type_instance
   end
 
-  function list:add_node()
+  -- Create a new entry in the list, based on the specification
+  -- of earlier add_list_node calls, without any value
+  -- the new entry is returned so the caller can add values
+  -- TODO: add optional data argument to immediately fill it?
+  function list:create_list_element()
     local new_node = _M.container:create('list_entry')
     -- TODO: should this be a deep copy?
     new_node.yang_nodes = util.deepcopy(self.entry_nodes)
@@ -500,14 +507,16 @@ list_mt = { __index = list }
   end
   -- TODO: should we error on attempts to use getValue and setValue?
 
+  -- Returns true if the list contains one or more elements
   function list:hasValue()
     return table.getn(self.value) > 0
   end
 
+  -- Fill the list with the given raw data
   function list:fromData(data)
     -- TODO: should we empty our local data to be sure at this point?
     for i,data_el in pairs(data) do
-      local new_el = self:add_node()
+      local new_el = self:create_list_element()
       new_el:fromData(data_el)
       new_el:setParent(self)
     end
@@ -529,6 +538,7 @@ list_mt = { __index = list }
     print(self:getValueAsString())
   end
 
+  -- Returns the list elements as raw data
   function list:toData()
     local result = {}
     for i,value in pairs(self.value) do
@@ -553,6 +563,7 @@ list_mt = { __index = list }
     end
   end
 
+  -- Returns all the elements in the list (as container YangNodes)
   function list:getAll()
     local result = {}
     table.insert(result, self)
@@ -572,10 +583,10 @@ end
 
 -- TODO: can we derive from the definition whether we need to 'remove' the intermediate step?
 -- choice is a type where one or more of the defined choices can be used
-local choice = util.subClass(_M.BaseType)
+local choice = util.subClass(_M.YangNode)
 choice_mt = { __index = choice }
   function choice:create(nodeName, mandatory, singlechoice)
-    local new_inst = _M.BaseType:create("choice", nodeName, mandatory)
+    local new_inst = _M.YangNode:create("choice", nodeName, mandatory)
     setmetatable(new_inst, choice_mt)
     new_inst.choices = {}
     new_inst.singleChoice = singlechoice
