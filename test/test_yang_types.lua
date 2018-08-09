@@ -1,6 +1,7 @@
 #!/usr/bin/lua
 
-local yt = require "yang_types"
+local yt = require "yang.basic_types"
+local yang = require "yang"
 local lu = require('luaunit')
 
 TestUInt8 = {} --class
@@ -104,9 +105,9 @@ TestURI = {}
 
 TestDateTime = {}
   function TestDateTime:setup()
-    self.a = yt.yang_date_and_time:create('a')
-    self.b = yt.yang_date_and_time:create('b')
-    self.c = yt.yang_date_and_time:create('c')
+    self.a = yang.basic_types.date_and_time:create('a')
+    self.b = yang.basic_types.date_and_time:create('b')
+    self.c = yang.basic_types.date_and_time:create('c')
   end
 
   function TestDateTime:testSet()
