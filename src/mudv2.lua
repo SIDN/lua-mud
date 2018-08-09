@@ -2,16 +2,15 @@
 -- MUD container
 
 local json = require("cjson")
-local yt = require "yang_types"
 local yang = require "yang"
 
 local _M = {}
 
 -- ietf-access-control-list is a specialized type; the base of it is a container
-local ietf_access_control_list = yang.util.subClass(yt.container)
+local ietf_access_control_list = yang.util.subClass(yang.basic_types.container)
 ietf_access_control_list_mt = { __index = ietf_access_control_list }
   function ietf_access_control_list:create(nodeName, mandatory)
-    local new_inst = yt.container:create(nodeName, mandatory)
+    local new_inst = yang.basic_types.container:create(nodeName, mandatory)
     -- additional step: add the type name
     new_inst.typeName = "acl"
     setmetatable(new_inst, ietf_access_control_list_mt)
@@ -20,23 +19,23 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
   end
 
   function ietf_access_control_list:add_definition()
-    local acl_list = yt.list:create('acl')
+    local acl_list = yang.basic_types.list:create('acl')
     acl_list:set_entry_node(yang.basic_types.string:create('name', true))
-    acl_list:set_entry_node(yt.acl_type:create('type', false))
+    acl_list:set_entry_node(yang.complex_types.acl_type:create('type', false))
 
-    local aces = yt.container:create('aces')
-    local ace_list = yt.list:create('ace')
+    local aces = yang.basic_types.container:create('aces')
+    local ace_list = yang.basic_types.list:create('ace')
     ace_list:set_entry_node(yang.basic_types.string:create('name'))
-    local matches = yt.choice:create('matches')
+    local matches = yang.basic_types.choice:create('matches')
 
-    local matches_eth = yt.container:create('eth')
+    local matches_eth = yang.basic_types.container:create('eth')
     matches_eth:add_node(yang.basic_types.mac_address:create('destination-mac-address'))
     matches_eth:add_node(yang.basic_types.mac_address:create('destination-mac-address-mask'))
     matches_eth:add_node(yang.basic_types.mac_address:create('source-mac-address'))
     matches_eth:add_node(yang.basic_types.mac_address:create('source-mac-address-mask'))
     matches_eth:add_node(yang.basic_types.eth_ethertype:create('ethertype'))
 
-    local matches_ipv4 = yt.container:create('ipv4')
+    local matches_ipv4 = yang.basic_types.container:create('ipv4')
     matches_ipv4:add_node(yang.basic_types.inet_dscp:create('dscp', false))
     matches_ipv4:add_node(yang.basic_types.uint8:create('ecn', false))
     matches_ipv4:add_node(yang.basic_types.uint16:create('length', false))
@@ -50,7 +49,7 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches_ipv4:add_node(yang.basic_types.string:create('ietf-acldns:dst-dnsname', false))
     matches_ipv4:add_node(yang.basic_types.string:create('ietf-acldns:src-dnsname', false))
 
-    local matches_ipv6 = yt.container:create('ipv6')
+    local matches_ipv6 = yang.basic_types.container:create('ipv6')
     matches_ipv6:add_node(yang.basic_types.inet_dscp:create('dscp', false))
     matches_ipv6:add_node(yang.basic_types.uint8:create('ecn', false))
     matches_ipv6:add_node(yang.basic_types.uint16:create('length', false))
@@ -61,23 +60,23 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     -- TODO: -network
     -- TODO: flow-label
 
-    local matches_tcp = yt.container:create('tcp')
+    local matches_tcp = yang.basic_types.container:create('tcp')
     matches_tcp:add_node(yang.basic_types.uint32:create('sequence-number', false))
     matches_tcp:add_node(yang.basic_types.uint32:create('acknowledgement-number', false))
     matches_tcp:add_node(yang.basic_types.uint8:create('offset', false))
     matches_tcp:add_node(yang.basic_types.uint8:create('reserved', false))
 
-    local source_port_choice = yt.choice:create('source-port', false, true)
+    local source_port_choice = yang.basic_types.choice:create('source-port', false, true)
     -- todo: full implementation of pf:port-range-or-operator
-    local choice_operator = yt.container:create('choice-operator')
+    local choice_operator = yang.basic_types.container:create('choice-operator')
     choice_operator:add_node(yang.basic_types.string:create('operator'))
     choice_operator:add_node(yang.basic_types.uint16:create('port'))
     source_port_choice:add_choice('operator', choice_operator)
     matches_tcp:add_node(source_port_choice)
 
-    local destination_port_choice = yt.choice:create('destination-port', false, true)
+    local destination_port_choice = yang.basic_types.choice:create('destination-port', false, true)
     -- todo: full implementation of pf:port-range-or-operator
-    local choice_operator = yt.container:create('choice-operator')
+    local choice_operator = yang.basic_types.container:create('choice-operator')
     choice_operator:add_node(yang.basic_types.string:create('operator'))
     choice_operator:add_node(yang.basic_types.uint16:create('port'))
     --choice_operator:makePresenceContainer()
@@ -88,7 +87,7 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     -- TODO: type 'direction' (enum?)
     matches_tcp:add_node(yang.basic_types.string:create('ietf-mud:direction-initiated', false))
 
-    local matches_udp = yt.container:create('udp')
+    local matches_udp = yang.basic_types.container:create('udp')
     matches_udp:add_node(yang.basic_types.uint16:create('length', false))
     matches_udp:add_node(yang.util.deepcopy(source_port_choice))
     matches_udp:add_node(yang.util.deepcopy(destination_port_choice))
@@ -101,7 +100,7 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     ace_list:set_entry_node(matches)
     aces:add_node(ace_list)
 
-    local actions = yt.container:create('actions')
+    local actions = yang.basic_types.container:create('actions')
     -- todo identityref
     actions:add_node(yang.basic_types.string:create('forwarding'))
     actions:add_node(yang.basic_types.string:create('logging', false))
@@ -115,10 +114,10 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
   end
 -- class ietf_access_control_list
 
-local ietf_mud_type = yang.util.subClass(yt.container)
+local ietf_mud_type = yang.util.subClass(yang.basic_types.container)
 ietf_mud_type_mt = { __index = ietf_mud_type }
   function ietf_mud_type:create(nodeName, mandatory)
-    local new_inst = yt.container:create(nodeName, mandatory)
+    local new_inst = yang.basic_types.container:create(nodeName, mandatory)
     -- additional step: add the type name
     new_inst.typeName = "mud"
     setmetatable(new_inst, ietf_mud_type_mt)
@@ -127,7 +126,7 @@ ietf_mud_type_mt = { __index = ietf_mud_type }
   end
 
   function ietf_mud_type:add_definition()
-    local c = yt.container:create('mud')
+    local c = yang.basic_types.container:create('mud')
     c:add_node(yang.basic_types.uint8:create('mud-version', 'mud-version'))
     c:add_node(yang.basic_types.inet_uri:create('mud-url', 'mud-url', true))
     c:add_node(yang.basic_types.date_and_time:create('last-update'))
@@ -141,9 +140,9 @@ ietf_mud_type_mt = { __index = ietf_mud_type }
     c:add_node(yang.basic_types.inet_uri:create('documentation', false))
     c:add_node(yang.basic_types.notimplemented:create('extensions', false))
 
-    local from_device_policy = yt.container:create('from-device-policy')
-    local access_lists = yt.container:create('access-lists')
-    local access_lists_list = yt.list:create('access-list')
+    local from_device_policy = yang.basic_types.container:create('from-device-policy')
+    local access_lists = yang.basic_types.container:create('access-lists')
+    local access_lists_list = yang.basic_types.list:create('access-list')
     -- todo: references
     access_lists_list:set_entry_node(yang.basic_types.string:create('name'))
     access_lists:add_node(access_lists_list)
@@ -151,9 +150,9 @@ ietf_mud_type_mt = { __index = ietf_mud_type }
     from_device_policy:add_node(access_lists)
     c:add_node(from_device_policy)
 
-    local to_device_policy = yt.container:create('to-device-policy')
-    local access_lists = yt.container:create('access-lists')
-    local access_lists_list = yt.list:create('access-list')
+    local to_device_policy = yang.basic_types.container:create('to-device-policy')
+    local access_lists = yang.basic_types.container:create('access-lists')
+    local access_lists_list = yang.basic_types.list:create('access-list')
     -- todo: references
     access_lists_list:set_entry_node(yang.basic_types.string:create('name'))
     access_lists:add_node(access_lists_list)
@@ -304,7 +303,7 @@ mud_mt = { __index = mud }
 
     new_inst.mud = ietf_mud_type:create('mud')
 
-    --local acl = yt.container:create()
+    --local acl = yang.basic_types.container:create()
     new_inst.acls = ietf_access_control_list:create('access-control-list')
     return new_inst
   end

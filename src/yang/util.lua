@@ -62,6 +62,18 @@ function _M.str_split_one(str, substr)
   end
 end
 
+-- Finds the index of the given element in the given list
+function _M.get_index_of(list, element)
+  for i,v in pairs(list) do
+    if v == element then
+      print("[XX] yooy: " .. i)
+      return i
+    end
+  end
+  error('element not found in list')
+end
+
+
 -- returns the name and index of a list path (e.g. acls[3])
 -- returns nil, nil if the first part does not contain a list index
 function get_path_list_index(path)

@@ -1,6 +1,5 @@
 #!/usr/bin/lua
 
-local mu = require("yang_types")
 local lu = require("luaunit")
 local yang = require("yang")
 

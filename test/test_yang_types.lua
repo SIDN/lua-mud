@@ -1,13 +1,12 @@
 #!/usr/bin/lua
 
-local yt = require "yang.basic_types"
 local yang = require "yang"
 local lu = require('luaunit')
 
 TestUInt8 = {} --class
     function TestUInt8:setup()
-      self.a = yt.uint8:create('a')
-      self.b = yt.uint8:create('b')
+      self.a = yang.basic_types.uint8:create('a')
+      self.b = yang.basic_types.uint8:create('b')
     end
 
     function TestUInt8:testDefaults()
@@ -46,8 +45,8 @@ TestUInt8 = {} --class
 
 TestBoolean = {}
   function TestBoolean:setup()
-    self.a = yt.boolean:create('a')
-    self.b = yt.boolean:create('b')
+    self.a = yang.basic_types.boolean:create('a')
+    self.b = yang.basic_types.boolean:create('b')
   end
 
   function TestBoolean:testDefaults()
@@ -74,8 +73,8 @@ TestBoolean = {}
 
 TestURI = {}
   function TestURI:setup()
-    self.a = yt.inet_uri:create('a')
-    self.b = yt.inet_uri:create('b')
+    self.a = yang.basic_types.inet_uri:create('a')
+    self.b = yang.basic_types.inet_uri:create('b')
   end
 
   function TestURI:testDefaults()
@@ -137,8 +136,8 @@ TestDateTime = {}
 
 TestString = {}
   function TestString:setup()
-    self.a = yt.string:create('a')
-    self.b = yt.string:create('b')
+    self.a = yang.basic_types.string:create('a')
+    self.b = yang.basic_types.string:create('b')
   end
 
   function TestString:testDefaults()
