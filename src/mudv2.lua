@@ -8,7 +8,7 @@ local yang = require "yang"
 local _M = {}
 
 -- ietf-access-control-list is a specialized type; the base of it is a container
-local ietf_access_control_list = inheritsFrom(yt.container)
+local ietf_access_control_list = yang.util.subClass(yt.container)
 ietf_access_control_list_mt = { __index = ietf_access_control_list }
   function ietf_access_control_list:create(nodeName, mandatory)
     local new_inst = yt.container:create(nodeName, mandatory)
@@ -90,8 +90,8 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
 
     local matches_udp = yt.container:create('udp')
     matches_udp:add_node(yt.uint16:create('length', false))
-    matches_udp:add_node(deepcopy(source_port_choice))
-    matches_udp:add_node(deepcopy(destination_port_choice))
+    matches_udp:add_node(yang.util.deepcopy(source_port_choice))
+    matches_udp:add_node(yang.util.deepcopy(destination_port_choice))
 
     matches:add_choice('eth', matches_eth)
     matches:add_choice('ipv4', matches_ipv4)
@@ -115,7 +115,7 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
   end
 -- class ietf_access_control_list
 
-local ietf_mud_type = inheritsFrom(yt.container)
+local ietf_mud_type = yang.util.subClass(yt.container)
 ietf_mud_type_mt = { __index = ietf_mud_type }
   function ietf_mud_type:create(nodeName, mandatory)
     local new_inst = yt.container:create(nodeName, mandatory)

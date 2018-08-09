@@ -71,6 +71,72 @@ function get_path_list_index(path)
   end
 end
 
+-- Based on http://lua-users.org/wiki/InheritanceTutorial
+-- Defining a class with inheritsFrom instead of just {} will
+-- add all methods, and class, superclass and isa method
+function _M.subClass( baseClass )
+
+    local new_class = {}
+    local class_mt = { __index = new_class }
+
+    function new_class:create()
+        local newinst = {}
+        setmetatable( newinst, class_mt )
+        return newinst
+    end
+
+    if nil ~= baseClass then
+        setmetatable( new_class, { __index = baseClass } )
+    end
+
+    -- Implementation of additional OO properties starts here --
+
+    -- Return the class object of the instance
+    function new_class:class()
+        return new_class
+    end
+
+    -- Return the super class object of the instance
+    function new_class:superClass()
+        return baseClass
+    end
+
+    -- Return true if the caller is an instance of theClass
+    function new_class:isa( theClass )
+        local b_isa = false
+
+        local cur_class = new_class
+
+        while ( nil ~= cur_class ) and ( false == b_isa ) do
+            if cur_class == theClass then
+                b_isa = true
+            else
+                print("[XX] get superclass of " .. self:getType())
+                cur_class = cur_class:superClass()
+            end
+        end
+
+        return b_isa
+    end
+
+    return new_class
+end
+
+-- helper function for deep copying data nodes
+function _M.deepcopy(orig)
+    local orig_type = type(orig)
+    local copy
+    if orig_type == 'table' then
+        copy = {}
+        for orig_key, orig_value in next, orig, nil do
+            copy[_M.deepcopy(orig_key)] = _M.deepcopy(orig_value)
+        end
+        setmetatable(copy, _M.deepcopy(getmetatable(orig)))
+    else -- number, string, boolean, etc
+        copy = orig
+    end
+    return copy
+end
 
 
 return _M

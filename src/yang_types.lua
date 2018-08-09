@@ -3,7 +3,7 @@ local luadate = require("date")
 
 local json = require("cjson")
 
-local yang_util = require("yang.util")
+local util = require("yang.util")
 
 -- ponderings (TODO)
 --
@@ -17,8 +17,6 @@ local yang_util = require("yang.util")
 --
 -- should we include the name in instances of the nodes? does that make sense?
 -- does that make the named-choice-items issue any easier, or harder?
-
-
 
 local _M = {}
 -- helper classes for the basic types used in YANG
@@ -34,72 +32,6 @@ local _M = {}
 -- yang type uint8 stays uint8
 -- yang type inet:uri becomes inet__uri
 
--- Taken from http://lua-users.org/wiki/InheritanceTutorial
--- Defining a class with inheritsFrom instead of just {} will
--- add all methods, and class, superclass and isa method
-function inheritsFrom( baseClass )
-
-    local new_class = {}
-    local class_mt = { __index = new_class }
-
-    function new_class:create()
-        local newinst = {}
-        setmetatable( newinst, class_mt )
-        return newinst
-    end
-
-    if nil ~= baseClass then
-        setmetatable( new_class, { __index = baseClass } )
-    end
-
-    -- Implementation of additional OO properties starts here --
-
-    -- Return the class object of the instance
-    function new_class:class()
-        return new_class
-    end
-
-    -- Return the super class object of the instance
-    function new_class:superClass()
-        return baseClass
-    end
-
-    -- Return true if the caller is an instance of theClass
-    function new_class:isa( theClass )
-        local b_isa = false
-
-        local cur_class = new_class
-
-        while ( nil ~= cur_class ) and ( false == b_isa ) do
-            if cur_class == theClass then
-                b_isa = true
-            else
-                print("[XX] get superclass of " .. self:getType())
-                cur_class = cur_class:superClass()
-            end
-        end
-
-        return b_isa
-    end
-
-    return new_class
-end
-
--- helper function for deep copying data nodes
-function deepcopy(orig)
-    local orig_type = type(orig)
-    local copy
-    if orig_type == 'table' then
-        copy = {}
-        for orig_key, orig_value in next, orig, nil do
-            copy[deepcopy(orig_key)] = deepcopy(orig_value)
-        end
-        setmetatable(copy, deepcopy(getmetatable(orig)))
-    else -- number, string, boolean, etc
-        copy = orig
-    end
-    return copy
-end
 
 local BaseType = {}
 BaseType_mt = { __index = BaseType }
@@ -204,7 +136,7 @@ BaseType_mt = { __index = BaseType }
 -- class BaseType not exported
 
 
-local uint8 = inheritsFrom(BaseType)
+local uint8 = util.subClass(BaseType)
 uint8_mt = { __index = uint8 }
   function uint8:create(nodeName, mandatory)
     local new_inst = BaseType:create("uint8", nodeName, mandatory)
@@ -225,7 +157,7 @@ uint8_mt = { __index = uint8 }
   end
 _M.uint8 = uint8
 
-local uint16 = inheritsFrom(BaseType)
+local uint16 = util.subClass(BaseType)
 uint16_mt = { __index = uint16 }
   function uint16:create(nodeName, mandatory)
     local new_inst = BaseType:create("uint16", nodeName, mandatory)
@@ -246,7 +178,7 @@ uint16_mt = { __index = uint16 }
   end
 _M.uint16 = uint16
 
-local uint32 = inheritsFrom(BaseType)
+local uint32 = util.subClass(BaseType)
 uint32_mt = { __index = uint32 }
   function uint32:create(nodeName, mandatory)
     local new_inst = BaseType:create("uint32", nodeName, mandatory)
@@ -268,7 +200,7 @@ uint32_mt = { __index = uint32 }
 _M.uint32 = uint32
 
 
-local boolean = inheritsFrom(BaseType)
+local boolean = util.subClass(BaseType)
 boolean_mt = { __index = boolean }
   function boolean:create(nodeName, mandatory)
     local new_inst = BaseType:create("boolean", nodeName, mandatory)
@@ -285,7 +217,7 @@ boolean_mt = { __index = boolean }
   end
 _M.boolean = boolean
 
-local inet_uri = inheritsFrom(BaseType)
+local inet_uri = util.subClass(BaseType)
 inet_uri_mt = { __index = inet_uri }
   function inet_uri:create(nodeName, mandatory)
     local new_inst = BaseType:create("inet:uri", nodeName, mandatory)
@@ -306,7 +238,7 @@ inet_uri_mt = { __index = inet_uri }
   end
 _M.inet_uri = inet_uri
 
-local yang_date_and_time = inheritsFrom(BaseType)
+local yang_date_and_time = util.subClass(BaseType)
 yang_date_and_time_mt = { __index = yang_date_and_time }
   function yang_date_and_time:create(nodeName, mandatory)
     local new_inst = BaseType:create("yang:date-and-time", nodeName, mandatory)
@@ -328,7 +260,7 @@ yang_date_and_time_mt = { __index = yang_date_and_time }
   end
 _M.yang_date_and_time = yang_date_and_time
 
-local yang_mac_address = inheritsFrom(BaseType)
+local yang_mac_address = util.subClass(BaseType)
 yang_mac_address_mt = { __index = yang_mac_address }
   function yang_mac_address:create(nodeName, mandatory)
     local new_inst = BaseType:create("inet:uri", nodeName, mandatory)
@@ -348,7 +280,7 @@ yang_mac_address_mt = { __index = yang_mac_address }
   end
 _M.yang_mac_address = yang_mac_address
 
-local eth_ethertype = inheritsFrom(BaseType)
+local eth_ethertype = util.subClass(BaseType)
 eth_ethertype_mt = { __index = eth_ethertype }
   function eth_ethertype:create(nodeName, mandatory)
     local new_inst = BaseType:create("inet:uri", nodeName, mandatory)
@@ -361,7 +293,7 @@ eth_ethertype_mt = { __index = eth_ethertype }
   end
 _M.eth_ethertype = eth_ethertype
 
-local inet_dscp = inheritsFrom(BaseType)
+local inet_dscp = util.subClass(BaseType)
 inet_dscp_mt = { __index = inet_dscp }
   function inet_dscp:create(nodeName, mandatory)
     local new_inst = BaseType:create("inet:uri", nodeName, mandatory)
@@ -374,7 +306,7 @@ inet_dscp_mt = { __index = inet_dscp }
   end
 _M.inet_dscp = inet_dscp
 
-local bits = inheritsFrom(BaseType)
+local bits = util.subClass(BaseType)
 bits_mt = { __index = bits }
   function bits:create(nodeName, mandatory)
     local new_inst = BaseType:create("inet:uri", nodeName, mandatory)
@@ -388,7 +320,7 @@ bits_mt = { __index = bits }
 _M.bits = bits
 
 
-local string = inheritsFrom(BaseType)
+local string = util.subClass(BaseType)
 string_mt = { __index = string }
   function string:create(nodeName, mandatory)
     local new_inst = BaseType:create("string", nodeName, mandatory)
@@ -405,7 +337,7 @@ string_mt = { __index = string }
   end
 _M.string = string
 
-local notimplemented = inheritsFrom(BaseType)
+local notimplemented = util.subClass(BaseType)
 notimplemented_mt = { __index = notimplemented }
   function notimplemented:create(nodeName, mandatory)
     local new_inst = BaseType:create("notimplemented", nodeName, mandatory)
@@ -420,7 +352,7 @@ _M.notimplemented = notimplemented
 
 --
 
-local acl_type = inheritsFrom(BaseType)
+local acl_type = util.subClass(BaseType)
 acl_type_mt = { __index = acl_type }
   function acl_type:create(nodeName, mandatory)
     local new_inst = BaseType:create("acl-type", nodeName, mandatory)
@@ -445,7 +377,7 @@ _M.acl_type = acl_type
 
 -- a container is the general-purpose holder of data that is not of any specific type
 -- essentially, it's the 'main' holder of definitions and data
-local container = inheritsFrom(BaseType)
+local container = util.subClass(BaseType)
 container_mt = { __index = container }
   function container:create(nodeName, mandatory)
     local new_inst = BaseType:create("container", nodeName, mandatory)
@@ -540,13 +472,13 @@ container_mt = { __index = container }
     -- get and remove the first section of the path
     --local part, rest = path.
     -- validate it
-    local first, rest = yang_util.str_split_one(path, "/")
+    local first, rest = util.str_split_one(path, "/")
     local list_name, list_index = get_path_list_index(first)
     if list_name ~= nil then
       first = list_name
     end
 
-    local name_to_find, rest = yang_util.str_split_one(path, "/")
+    local name_to_find, rest = util.str_split_one(path, "/")
     if name_to_find == nil then
       name_to_find = rest
       rest = nil
@@ -568,14 +500,14 @@ container_mt = { __index = container }
         return self.yang_nodes[name_to_find]:getNode(rest, list_index)
       end
     end
-    error("node " .. name_to_find .. " not found in " .. self:getType() .. " subnodes: [ " .. yang_util.str_join(", ", self:getNodeNames()) .. " ]")
+    error("node " .. name_to_find .. " not found in " .. self:getType() .. " subnodes: [ " .. util.str_join(", ", self:getNodeNames()) .. " ]")
   end
 
   function container:getAll()
     local result = {}
     table.insert(result, self)
     for i,n in pairs(self.yang_nodes) do
-      yang_util.table_extend(result, n:getAll())
+      util.table_extend(result, n:getAll())
     end
     return result
   end
@@ -597,7 +529,7 @@ end
 
 -- we implement lists by making them lists of containers, with
 -- an interface that skips the container part (mostly)
-local list = inheritsFrom(BaseType)
+local list = util.subClass(BaseType)
 list_mt = { __index = list }
   function list:create(nodeName)
     local new_inst = BaseType:create("list", nodeName)
@@ -616,7 +548,7 @@ list_mt = { __index = list }
   function list:add_node()
     local new_node = container:create('list_entry')
     -- TODO: should this be a deep copy?
-    new_node.yang_nodes = deepcopy(self.entry_nodes)
+    new_node.yang_nodes = util.deepcopy(self.entry_nodes)
     --new_node.value = nil
     table.insert(self.value, new_node)
 
@@ -685,7 +617,7 @@ list_mt = { __index = list }
     local result = {}
     table.insert(result, self)
     for i,n in pairs(self.value) do
-      yang_util.table_extend(result, n:getAll())
+      util.table_extend(result, n:getAll())
     end
     return result
   end
@@ -701,7 +633,7 @@ end
 
 -- TODO: can we derive from the definition whether we need to 'remove' the intermediate step?
 -- choice is a type where one or more of the defined choices can be used
-local choice = inheritsFrom(BaseType)
+local choice = util.subClass(BaseType)
 choice_mt = { __index = choice }
   function choice:create(nodeName, mandatory, singlechoice)
     local new_inst = BaseType:create("choice", nodeName, mandatory)
