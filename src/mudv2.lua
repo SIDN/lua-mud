@@ -3,6 +3,7 @@
 
 local json = require("cjson")
 local yt = require "yang_types"
+local yang = require "yang"
 
 local _M = {}
 
@@ -361,7 +362,7 @@ mud_mt = { __index = mud }
       -- but xpath is too complex. need to find right level.
       local found = false
       local acl = findNodeWithProperty(self.acls, "acl", "name", acl_name)
-      table_extend(rules, aceToRules(acl:getNode('aces'):getNode('ace')))
+      yang.util.table_extend(rules, aceToRules(acl:getNode('aces'):getNode('ace')))
     end
 
     local to_device_acl_nodelist = self.mud:getNode("to-device-policy/access-lists/access-list")
@@ -372,7 +373,7 @@ mud_mt = { __index = mud }
       -- but xpath is too complex. need to find right level.
       local found = false
       local acl = findNodeWithProperty(self.acls, "acl", "name", acl_name)
-      table_extend(rules, aceToRules(acl:getNode('aces'):getNode('ace')))
+      yang.util.table_extend(rules, aceToRules(acl:getNode('aces'):getNode('ace')))
     end
     return rules
   end

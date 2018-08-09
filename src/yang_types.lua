@@ -3,6 +3,8 @@ local luadate = require("date")
 
 local json = require("cjson")
 
+local yang_util = require("yang.util")
+
 -- ponderings (TODO)
 --
 -- Should we make a (global?) type registry, and just treat everything as a type?
@@ -16,74 +18,7 @@ local json = require("cjson")
 -- should we include the name in instances of the nodes? does that make sense?
 -- does that make the named-choice-items issue any easier, or harder?
 
--- extend t1 with all the elements of t2
-function table_extend(t1, t2)
-  for i,v in pairs(t2) do
-    table.insert(t1, v)
-  end
-end
 
--- Concat the contents of the parameter list,
--- separated by the string delimiter (just like in perl)
--- example: strjoin(", ", {"Anna", "Bob", "Charlie", "Dolores"})
-function str_join(delimiter, list)
-   local len = table.getn(list)
-   if len == 0 then
-      return ""
-   end
-   local string = list[1]
-   for i = 2, len do
-      string = string .. delimiter .. list[i]
-   end
-   return string
-end
-
--- split on *non*-matches of the pattern
--- e.g. str_isplit("a,b,c", ",") -> { ",", "," }
--- e.g. str_isplit("a,b,c", "[^,]") -> { "a", "b", "c" }
-function str_isplit(str, pattern)
-   local tbl = {}
-   str:gsub(pattern, function(x) tbl[#tbl+1]=x end)
-   return tbl
-end
-
-function str_split(str, substr)
-  local result = {}
-  local cur = str
-  if substr:len() == 0 then error("str_split with empty argument") end
-  local i,j = str:find(substr)
-  while i ~= nil do
-    if j ~= nil then
-      local part = str:sub(0, i-1)
-      table.insert(result, part)
-      str = str:sub(j+1)
-      i,j = str:find(substr)
-    end
-  end
-  table.insert(result, str)
-  return result
-end
-
--- splits the string on the given sub string, but
--- returns only the first element, and the rest of the original string
--- if the substring was not found at all, returns nil, <original_string>
-function str_split_one(str, substr)
-  local parts = str_split(str, substr)
-  if table.getn(parts) == 1 then
-    return nil, str
-  else
-    return table.remove(parts, 1), str_join(substr, parts)
-  end
-end
-
--- returns the name and index of a list path (e.g. acls[3])
--- returns nil, nil if the first part does not contain a list index
-function get_path_list_index(path)
-  if path ~= nil then
-    local name, index = string.match(path, "^([%w-_]+)%[(%d+)%]")
-    if index ~= nil then return name, tonumber(index) end
-  end
-end
 
 local _M = {}
 -- helper classes for the basic types used in YANG
@@ -605,13 +540,13 @@ container_mt = { __index = container }
     -- get and remove the first section of the path
     --local part, rest = path.
     -- validate it
-    local first, rest = str_split_one(path, "/")
+    local first, rest = yang_util.str_split_one(path, "/")
     local list_name, list_index = get_path_list_index(first)
     if list_name ~= nil then
       first = list_name
     end
 
-    local name_to_find, rest = str_split_one(path, "/")
+    local name_to_find, rest = yang_util.str_split_one(path, "/")
     if name_to_find == nil then
       name_to_find = rest
       rest = nil
@@ -633,14 +568,14 @@ container_mt = { __index = container }
         return self.yang_nodes[name_to_find]:getNode(rest, list_index)
       end
     end
-    error("node " .. name_to_find .. " not found in " .. self:getType() .. " subnodes: [ " .. str_join(", ", self:getNodeNames()) .. " ]")
+    error("node " .. name_to_find .. " not found in " .. self:getType() .. " subnodes: [ " .. yang_util.str_join(", ", self:getNodeNames()) .. " ]")
   end
 
   function container:getAll()
     local result = {}
     table.insert(result, self)
     for i,n in pairs(self.yang_nodes) do
-      table_extend(result, n:getAll())
+      yang_util.table_extend(result, n:getAll())
     end
     return result
   end
@@ -750,7 +685,7 @@ list_mt = { __index = list }
     local result = {}
     table.insert(result, self)
     for i,n in pairs(self.value) do
-      table_extend(result, n:getAll())
+      yang_util.table_extend(result, n:getAll())
     end
     return result
   end

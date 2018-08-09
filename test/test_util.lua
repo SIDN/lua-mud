@@ -2,6 +2,7 @@
 
 local mu = require("yang_types")
 local lu = require("luaunit")
+local yang = require("yang")
 
 local json = require("cjson")
 
@@ -12,31 +13,31 @@ TestUtil = {} --class
   function TestUtil:test_str_isplit()
     local input = "a,b,c"
     local expect = { [1] = "a", [2] = "b", [3] = "c" }
-    local result = str_isplit(input, "[^,]")
+    local result = yang.util.str_isplit(input, "[^,]")
     lu.assertEquals(result, expect)
   end
 
-  function TestUtil:test_str_split()
+  function TestUtil:str_split()
     local input = "a,b,c"
     local expect = { [1] = "a", [2] = "b", [3] = "c" }
-    local result = str_split(input, ",")
+    local result = yang.util.str_split(input, ",")
     lu.assertEquals(result, expect)
 
     input = ",c"
     expect = { [1] = "", [2] = "c" }
-    result = str_split(input, ",")
+    result = yang.util.str_split(input, ",")
     lu.assertEquals(result, expect)
 
     input = "foobarbaz"
     expect = { [1] = "foo", [2] = "baz" }
-    result = str_split(input, "bar")
+    result = yang.util.str_split(input, "bar")
     lu.assertEquals(result, expect)
   end
 
   function TestUtil:test_str_join()
     local input = { [1] = "a", [2] = "b", [3] = "c" }
     local expect = "a,b,c"
-    local result = str_join(",", input)
+    local result = yang.util.str_join(",", input)
     lu.assertEquals(result, expect)
   end
 
@@ -44,35 +45,35 @@ TestUtil = {} --class
     local input = "a,b,c"
     local expect1 = "a"
     local expect2 = "b,c"
-    local result1, result2 = str_split_one(input, ",")
+    local result1, result2 = yang.util.str_split_one(input, ",")
     lu.assertEquals(result1, expect1)
     lu.assertEquals(result2, expect2)
 
     input = "a,b,c"
     expect1 = nil
     expect2 = "a,b,c"
-    result1, result2 = str_split_one(input, "nomatch")
+    result1, result2 = yang.util.str_split_one(input, "nomatch")
     lu.assertEquals(result1, expect1)
     lu.assertEquals(result2, expect2)
 
     input = "a,b,c"
     expect1 = ""
     expect2 = ",c"
-    result1, result2 = str_split_one(input, "a,b")
+    result1, result2 = yang.util.str_split_one(input, "a,b")
     lu.assertEquals(result1, expect1)
     lu.assertEquals(result2, expect2)
 
     input = "a,b,c"
     expect1 = "a,"
     expect2 = ""
-    result1, result2 = str_split_one(input, "b,c")
+    result1, result2 = yang.util.str_split_one(input, "b,c")
     lu.assertEquals(result1, expect1)
     lu.assertEquals(result2, expect2)
 
     input = "foo/bar[1]/baz"
     expect1 = "foo"
     expect2 = "bar[1]/baz"
-    result1, result2 = str_split_one(input, "/")
+    result1, result2 = yang.util.str_split_one(input, "/")
     lu.assertEquals(result1, expect1)
     lu.assertEquals(result2, expect2)
   end
@@ -103,7 +104,7 @@ TestUtil = {} --class
 
   --function TestUtil:test_other_split()
   --  local input = "foo/bar[0]/baz"
-  --  
+  --
   --end
 -- class testUtil
 
