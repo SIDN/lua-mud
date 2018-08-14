@@ -1,3 +1,4 @@
+local json = require("json")
 
 local _M = {}
 
@@ -83,10 +84,28 @@ function get_path_list_index(path)
   end
 end
 
+local function tdump (tbl, indent)
+  if not indent then indent = 0 end
+  for k, v in pairs(tbl) do
+    formatting = string.rep("  ", indent) .. k .. ": "
+    if type(v) == "table" then
+      print(formatting)
+      tdump(v, indent+1)
+    elseif type(v) == 'boolean' then
+      print(formatting .. tostring(v))
+    elseif type(v) == 'function' then
+      print(formatting .. "<function>")
+    else
+      print(formatting .. v)
+    end
+  end
+end
+
+
 -- Based on http://lua-users.org/wiki/InheritanceTutorial
 -- Defining a class with inheritsFrom instead of just {} will
 -- add all methods, and class, superclass and isa method
-function _M.subClass( baseClass )
+function _M.subClass( classNameString, baseClass )
 
     local new_class = {}
     local class_mt = { __index = new_class }
@@ -94,6 +113,7 @@ function _M.subClass( baseClass )
     function new_class:create()
         local newinst = {}
         setmetatable( newinst, class_mt )
+        print("[Xx] creating new subclass: " .. classNameString)
         return newinst
     end
 
@@ -106,6 +126,10 @@ function _M.subClass( baseClass )
     -- Return the class object of the instance
     function new_class:class()
         return new_class
+    end
+
+    function new_class:class_name()
+        return classNameString
     end
 
     -- Return the super class object of the instance
@@ -123,7 +147,8 @@ function _M.subClass( baseClass )
             if cur_class == theClass then
                 b_isa = true
             else
-                print("[XX] get superclass of " .. self:getType())
+                if cur_class:superClass() ~= nil then
+                end
                 cur_class = cur_class:superClass()
             end
         end

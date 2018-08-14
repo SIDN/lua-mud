@@ -9,7 +9,7 @@ local basic_types = require("yang.basic_types")
 local _M = {}
 
 -- TODO
-local acl_type = util.subClass(basic_types.YangNode)
+local acl_type = util.subClass("acl_type", basic_types.YangNode)
 acl_type_mt = { __index = acl_type }
   function acl_type:create(nodeName, mandatory)
     local new_inst = basic_types.YangNode:create("acl-type", nodeName, mandatory)

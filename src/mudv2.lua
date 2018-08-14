@@ -7,7 +7,7 @@ local yang = require "yang"
 local _M = {}
 
 -- ietf-access-control-list is a specialized type; the base of it is a container
-local ietf_access_control_list = yang.util.subClass(yang.basic_types.container)
+local ietf_access_control_list = yang.util.subClass("ietf_access_control_list", yang.basic_types.container)
 ietf_access_control_list_mt = { __index = ietf_access_control_list }
   function ietf_access_control_list:create(nodeName, mandatory)
     local new_inst = yang.basic_types.container:create(nodeName, mandatory)
@@ -92,6 +92,7 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches_udp:add_node(yang.util.deepcopy(source_port_choice))
     matches_udp:add_node(yang.util.deepcopy(destination_port_choice))
 
+    matches:set_named(true)
     matches:add_choice('eth', matches_eth)
     matches:add_choice('ipv4', matches_ipv4)
     matches:add_choice('tcp', matches_tcp)
@@ -114,7 +115,7 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
   end
 -- class ietf_access_control_list
 
-local ietf_mud_type = yang.util.subClass(yang.basic_types.container)
+local ietf_mud_type = yang.util.subClass("ietf_mud_type", yang.basic_types.container)
 ietf_mud_type_mt = { __index = ietf_mud_type }
   function ietf_mud_type:create(nodeName, mandatory)
     local new_inst = yang.basic_types.container:create(nodeName, mandatory)
@@ -165,44 +166,36 @@ ietf_mud_type_mt = { __index = ietf_mud_type }
   end
 -- class ietf_mud_type
 
-local function tdump (tbl, indent)
-  if not indent then indent = 0 end
-  for k, v in pairs(tbl) do
-    formatting = string.rep("  ", indent) .. k .. ": "
-    if type(v) == "table" then
-      print(formatting)
-      tdump(v, indent+1)
-    elseif type(v) == 'boolean' then
-      print(formatting .. tostring(v))
-    else
-      print(formatting .. v)
-    end
-  end
-end
+--local function tdump (tbl, indent)
+--  if not indent then indent = 0 end
+--  for k, v in pairs(tbl) do
+--    formatting = string.rep("  ", indent) .. k .. ": "
+--    if type(v) == "table" then
+--      print(formatting)
+--      tdump(v, indent+1)
+--    elseif type(v) == 'boolean' then
+--      print(formatting .. tostring(v))
+--    else
+--      print(formatting .. v)
+--    end
+--  end
+--end
 
-local function findNodeWithProperty(base_node, node_to_find, property_name, property_value)
-    for i,potential_node in pairs(base_node:getAll()) do
-        if potential_node:getName() == node_to_find then
-            if potential_node:getType() == 'container' then
-                if potential_node:hasNode(property_name) then
-                    local property = potential_node:getNode(property_name)
-                    if property:getValue() == property_value then
-                        return potential_node
-                    end
-                end
-            elseif potential_node:getType() == "list" then
-                for i,list_node in pairs(potential_node:getValue()) do
-                    if list_node:hasNode("name") and list_node:getNode("name"):getValue() == property_value then
-                        return list_node
-                    end
-                end
-            else
-                error("can only use findNodeWithProperty on list or container nodes, not " .. potential_node:getType())
-            end
-        end
-    end
-    error("node with name " .. node_to_find .. " and property " .. property_name .. " = " .. json.encode(property_value) .. " not found")
-end
+local mud_container = yang.util.subClass("mud_container", yang.basic_types.container)
+mud_container_mt = { __index = mud_container }
+  function mud_container:create(nodeName, mandatory)
+    local new_inst = yang.basic_types.container:create(nodeName, mandatory)
+    new_inst.typeName = "mud_container"
+    setmetatable(new_inst, mud_container_mt)
+    new_inst:add_definition()
+    return new_inst
+  end
+
+  function mud_container:add_definition()
+    self:add_node(ietf_mud_type:create('ietf-mud:mud', true))
+    self:add_node(ietf_access_control_list:create('ietf-access-control-list:acls', true))
+  end
+-- mud_container
 
 function aceToRules(ace_node)
     local rules = {}
@@ -301,6 +294,7 @@ mud_mt = { __index = mud }
     setmetatable(new_inst, mud_mt)
     -- default values and types go here
 
+    new_inst.mud_container = mud_container:create('mud-container', true)
     new_inst.mud = ietf_mud_type:create('mud')
 
     --local acl = yang.basic_types.container:create()
@@ -308,20 +302,15 @@ mud_mt = { __index = mud }
     return new_inst
   end
 
-  -- parse from json file
-  function mud:parseFile(json_file_name)
-    local file, err = io.open(json_file_name)
-    if file == nil then
-      error(err)
-    end
-    local contents = file:read( "*a" )
-    local json_data, err = json.decode(contents);
+  function mud:parseJSON(json_str, file_name)
+    local json_data, err = json.decode(json_str);
     if json_data == nil then
       error(err)
     end
-    io.close( file )
+    self.mud_container:fromData(yang.util.deepcopy(json_data))
     if json_data['ietf-mud:mud'] == nil then
-      error("Top-level node 'ietf-mud:mud' not found in " .. json_file_name)
+      if file_name == nil then file_name = "<unknown>" end
+      error("Top-level node 'ietf-mud:mud' not found in " .. file_name)
     end
     local mud_data = json_data['ietf-mud:mud']
     self.mud:fromData(mud_data)
@@ -331,17 +320,18 @@ mud_mt = { __index = mud }
     end
     local acls_data = json_data['ietf-access-control-list:acls']
     self.acls:fromData(acls_data)
-
-    --self.acls:parseJson(json_data)
   end
 
-  function mud:print()
-    local data = {}
-    data["ietf-access-control-list:acls"] = self.acls:toData()
-    data["ietf-mud:mud"] = self.mud:toData()
-    print(json.encode(data))
+  -- parse from json file
+  function mud:parseFile(json_file_name)
+    local file, err = io.open(json_file_name)
+    if file == nil then
+      error(err)
+    end
+    local contents = file:read( "*a" )
+    io.close( file )
+    self:parseJSON(contents)
   end
-
 
   -- These are functions that might need refactoring into the
   -- nodes/types system, but we will first develop something that
@@ -360,7 +350,7 @@ mud_mt = { __index = mud }
       -- find with some functionality is definitely needed in types
       -- but xpath is too complex. need to find right level.
       local found = false
-      local acl = findNodeWithProperty(self.acls, "acl", "name", acl_name)
+      local acl = yang.findNodeWithProperty(self.acls, "acl", "name", acl_name)
       yang.util.table_extend(rules, aceToRules(acl:getNode('aces'):getNode('ace')))
     end
 
@@ -371,7 +361,7 @@ mud_mt = { __index = mud }
       -- find with some functionality is definitely needed in types
       -- but xpath is too complex. need to find right level.
       local found = false
-      local acl = findNodeWithProperty(self.acls, "acl", "name", acl_name)
+      local acl = yang.findNodeWithProperty(self.acls, "acl", "name", acl_name)
       yang.util.table_extend(rules, aceToRules(acl:getNode('aces'):getNode('ace')))
     end
     return rules

@@ -46,7 +46,7 @@
                   "protocol": 6
                 },
                 "tcp": {
-                  "ietf-mud:direction-initiated": "from-device",
+                  "ietf-mud:direction-initiated": "to-device",
                   "source-port": {
                     "operator": "eq",
                     "port": 80

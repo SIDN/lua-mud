@@ -8,7 +8,7 @@ local util = require("yang.util")
 
 local _M = {}
 
-local YangNode = {}
+local YangNode = util.subClass("YangNode", nil)
 local YangNode_mt = { __index = YangNode }
   function YangNode:create(typeName, nodeName, mandatory)
     if type(nodeName) ~= 'string' then
@@ -111,7 +111,7 @@ local YangNode_mt = { __index = YangNode }
 -- class YangNode not exported
 _M.YangNode = YangNode
 
-local uint8 = util.subClass(YangNode)
+local uint8 = util.subClass("uint8", YangNode)
 uint8_mt = { __index = uint8 }
   function uint8:create(nodeName, mandatory)
     local new_inst = YangNode:create("uint8", nodeName, mandatory)
@@ -132,7 +132,7 @@ uint8_mt = { __index = uint8 }
   end
 _M.uint8 = uint8
 
-local uint16 = util.subClass(YangNode)
+local uint16 = util.subClass("uint16", YangNode)
 uint16_mt = { __index = uint16 }
   function uint16:create(nodeName, mandatory)
     local new_inst = YangNode:create("uint16", nodeName, mandatory)
@@ -153,7 +153,7 @@ uint16_mt = { __index = uint16 }
   end
 _M.uint16 = uint16
 
-local uint32 = util.subClass(YangNode)
+local uint32 = util.subClass("uint32", YangNode)
 uint32_mt = { __index = uint32 }
   function uint32:create(nodeName, mandatory)
     local new_inst = YangNode:create("uint32", nodeName, mandatory)
@@ -175,7 +175,7 @@ uint32_mt = { __index = uint32 }
 _M.uint32 = uint32
 
 
-local boolean = util.subClass(YangNode)
+local boolean = util.subClass("boolean", YangNode)
 boolean_mt = { __index = boolean }
   function boolean:create(nodeName, mandatory)
     local new_inst = YangNode:create("boolean", nodeName, mandatory)
@@ -192,7 +192,7 @@ boolean_mt = { __index = boolean }
   end
 _M.boolean = boolean
 
-local inet_uri = util.subClass(YangNode)
+local inet_uri = util.subClass("inet_uri", YangNode)
 inet_uri_mt = { __index = inet_uri }
   function inet_uri:create(nodeName, mandatory)
     local new_inst = YangNode:create("inet:uri", nodeName, mandatory)
@@ -213,7 +213,7 @@ inet_uri_mt = { __index = inet_uri }
   end
 _M.inet_uri = inet_uri
 
-local date_and_time = util.subClass(YangNode)
+local date_and_time = util.subClass("date_and_time", YangNode)
 date_and_time_mt = { __index = date_and_time }
   function date_and_time:create(nodeName, mandatory)
     local new_inst = YangNode:create("yang:date-and-time", nodeName, mandatory)
@@ -235,7 +235,7 @@ date_and_time_mt = { __index = date_and_time }
   end
 _M.date_and_time = date_and_time
 
-local mac_address = util.subClass(YangNode)
+local mac_address = util.subClass("mac_address", YangNode)
 mac_address_mt = { __index = mac_address }
   function mac_address:create(nodeName, mandatory)
     local new_inst = YangNode:create("inet:uri", nodeName, mandatory)
@@ -255,7 +255,7 @@ mac_address_mt = { __index = mac_address }
   end
 _M.mac_address = mac_address
 
-local eth_ethertype = util.subClass(YangNode)
+local eth_ethertype = util.subClass("eth_ethertype", YangNode)
 eth_ethertype_mt = { __index = eth_ethertype }
   function eth_ethertype:create(nodeName, mandatory)
     local new_inst = YangNode:create("inet:uri", nodeName, mandatory)
@@ -268,7 +268,7 @@ eth_ethertype_mt = { __index = eth_ethertype }
   end
 _M.eth_ethertype = eth_ethertype
 
-local inet_dscp = util.subClass(YangNode)
+local inet_dscp = util.subClass("inet_dscp", YangNode)
 inet_dscp_mt = { __index = inet_dscp }
   function inet_dscp:create(nodeName, mandatory)
     local new_inst = YangNode:create("inet:uri", nodeName, mandatory)
@@ -281,7 +281,7 @@ inet_dscp_mt = { __index = inet_dscp }
   end
 _M.inet_dscp = inet_dscp
 
-local bits = util.subClass(YangNode)
+local bits = util.subClass("bits", YangNode)
 bits_mt = { __index = bits }
   function bits:create(nodeName, mandatory)
     local new_inst = YangNode:create("inet:uri", nodeName, mandatory)
@@ -295,7 +295,7 @@ bits_mt = { __index = bits }
 _M.bits = bits
 
 
-local string = util.subClass(YangNode)
+local string = util.subClass("string", YangNode)
 string_mt = { __index = string }
   function string:create(nodeName, mandatory)
     local new_inst = YangNode:create("string", nodeName, mandatory)
@@ -312,7 +312,7 @@ string_mt = { __index = string }
   end
 _M.string = string
 
-local notimplemented = util.subClass(YangNode)
+local notimplemented = util.subClass("notimplemented", YangNode)
 notimplemented_mt = { __index = notimplemented }
   function notimplemented:create(nodeName, mandatory)
     local new_inst = YangNode:create("notimplemented", nodeName, mandatory)
@@ -327,7 +327,7 @@ _M.notimplemented = notimplemented
 
 -- a container is the general-purpose holder of data that is not of any specific type
 -- essentially, it's the 'main' holder of definitions and data
-local container = util.subClass(_M.YangNode)
+local container = util.subClass("container", _M.YangNode)
 container_mt = { __index = container }
   function container:create(nodeName, mandatory)
     local new_inst = _M.YangNode:create("container", nodeName, mandatory)
@@ -469,7 +469,7 @@ _M.container = container
 
 -- we implement lists by making them lists of containers, with
 -- an interface that skips the container part (mostly)
-local list = util.subClass(_M.YangNode)
+local list = util.subClass("list", _M.YangNode)
 list_mt = { __index = list }
   function list:create(nodeName)
     local new_inst = _M.YangNode:create("list", nodeName)
@@ -583,7 +583,7 @@ end
 
 -- TODO: can we derive from the definition whether we need to 'remove' the intermediate step?
 -- choice is a type where one or more of the defined choices can be used
-local choice = util.subClass(_M.YangNode)
+local choice = util.subClass("choice", _M.YangNode)
 choice_mt = { __index = choice }
   function choice:create(nodeName, mandatory, singlechoice)
     local new_inst = _M.YangNode:create("choice", nodeName, mandatory)
@@ -592,7 +592,13 @@ choice_mt = { __index = choice }
     new_inst.singleChoice = singlechoice
     -- value is a table of entries, each of which should conform to
     -- the specification of entry_nodes
+    new_inst.is_named = false
     return new_inst
+  end
+
+  -- set this value to 'true' if the choice is determined by a named option
+  function choice:set_named(is_named_choice)
+    self.is_named = is_named_choice
   end
 
 --  function choice:setValue(value)
@@ -604,15 +610,19 @@ choice_mt = { __index = choice }
     self.choices[name] = node_type
   end
 
+-- hmm, do we need to differentiate name-based choice and content-based choice?
+-- need to consult the YANG rfc.
   function choice:fromData(data)
+    local found = false
     for data_name, data_data in pairs(data) do
-      local found = false
-      for name,node_type in pairs(self.choices) do
-        if name == data_name then
-          node_type:fromData(data_data)
-          found = true
+      if self.is_named then
+        for name,node_type in pairs(self.choices) do
+          if name == data_name then
+            node_type:fromData(data_data)
+            found = true
+          end
+          -- todo: improve error
         end
-        -- todo: improve error
       end
       -- fallback (can we remove the above and only use this?
       if not found then
@@ -620,7 +630,9 @@ choice_mt = { __index = choice }
           local status = pcall(node_type.fromData, node_type, data)
           if status then found = true end
         end
-        if not found then error("Unknown choice value: " .. data_name) end
+        if not found then
+          error("Unknown choice value: " .. data_name)
+        end
       end
     end
   end
