@@ -64,13 +64,22 @@ function _M.str_split_one(str, substr)
 end
 
 -- Finds the index of the given element in the given list
-function _M.get_index_of(list, element)
+function _M.get_index_of(list, element, max_list_if_not_found)
+  if max_list_if_not_found then
+    print("OLALAL")
+  end
+
   for i,v in pairs(list) do
     if v == element then
       return i
     end
   end
-  error('element not found in list')
+  -- return nil if not found
+  if max_list_if_not_found then
+    return table.getn(list)
+  else
+    error('element not found in list')
+  end
 end
 
 
@@ -165,7 +174,12 @@ function _M.deepcopy(orig)
     if orig_type == 'table' then
         copy = {}
         for orig_key, orig_value in next, orig, nil do
-            copy[_M.deepcopy(orig_key)] = _M.deepcopy(orig_value)
+            if orig_key == 'parent' then
+              -- don't deepcopy upwards references
+              copy[orig_key] = orig_value
+            else
+              copy[_M.deepcopy(orig_key)] = _M.deepcopy(orig_value)
+            end
         end
         setmetatable(copy, _M.deepcopy(getmetatable(orig)))
     else -- number, string, boolean, etc

@@ -1,4 +1,3 @@
-
 -- MUD container
 
 local json = require("cjson")
@@ -99,6 +98,7 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches:add_choice('udp', matches_tcp)
     matches:add_choice('ipv6', matches_ipv6)
     ace_list:add_list_node(matches)
+    print("[XX] ACES TYPE: " .. aces:getType())
     aces:add_node(ace_list)
 
     local actions = yang.basic_types.container:create('actions')
@@ -354,8 +354,6 @@ mud_mt = { __index = mud }
     end
     return rules
   end
-
-
 _M.mud = mud
 
 --
@@ -381,5 +379,6 @@ _M.mud = mud
 --
 -- # nft add rule inet filter input ct state related,established accept
 --
+
 
 return _M

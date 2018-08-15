@@ -20,6 +20,11 @@ TestMudFileReader = {} --class
     --self.a:print()
   end
 
+  function TestMudFileReader:testMudMakerExample2()
+    self.a:parseFile("../examples/example_from_mudmaker2.json")
+    --self.a:print()
+  end
+
   function TestMudFileReader:testGetNode()
     self.a = mu.mud.create()
     self.a:parseFile("../examples/example_from_draft.json")
