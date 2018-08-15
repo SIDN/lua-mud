@@ -193,7 +193,7 @@ mud_container_mt = { __index = mud_container }
 
   function mud_container:add_definition()
     self:add_node(ietf_mud_type:create('ietf-mud:mud', true))
-    self:add_node(ietf_access_control_list:create('ietf-access-control-list:acls', true))
+     self:add_node(ietf_access_control_list:create('ietf-access-control-list:acls', true))
   end
 -- mud_container
 

@@ -3,6 +3,32 @@
 local yang = require "yang"
 local lu = require('luaunit')
 
+-- create a fake basic type for the first set of tests
+local test_type = yang.util.subClass('test', yang.basic_types.YangNode)
+local test_type_mt = { __index = test_type }
+  function test_type:create(nodeName, mandatory)
+    local new_inst = yang.basic_types.YangNode:create("test_type", nodeName, mandatory)
+    setmetatable(new_inst, test_type_mt)
+    return new_inst
+  end
+-- end of test_type
+
+TestBasicType = {}
+    function TestBasicType:setup()
+      self.a = test_type:create('testtype', 'aaa', 'bb')
+    end
+
+    function TestBasicType:testBasicTypeErrors()
+      lu.assertError(self.a.setValue, self, "asdf")
+      lu.assertError(self.a.validate, self)
+      lu.assertError(self.a.getNode, self, "/foo")
+    end
+
+    function TestBasicType:testGetPath()
+      lu.assertEquals(self.a:getPath(), "testtype")
+    end
+-- class TestBasicType
+
 TestUInt8 = {} --class
     function TestUInt8:setup()
       self.a = yang.basic_types.uint8:create('a')
@@ -30,6 +56,8 @@ TestUInt8 = {} --class
       lu.assertEquals(self.b:getValue(), 200)
 
       lu.assertEquals(self.a:getValue(), 200)
+
+      lu.assertEquals(self.a:getValueAsString(), "200")
     end
 
     function TestUInt8:testBadValues()
@@ -42,6 +70,95 @@ TestUInt8 = {} --class
       lu.assertEquals(self.a:getValue(), 1)
     end
 -- class TestUint8
+
+TestUint16 = {} --class
+    function TestUint16:setup()
+      self.a = yang.basic_types.uint16:create('a')
+      self.b = yang.basic_types.uint16:create('b')
+    end
+
+    function TestUint16:testDefaults()
+      lu.assertEquals(self.a:getType(), "uint16")
+      lu.assertEquals(self.a:getName(), 'a')
+      lu.assertEquals(self.b:getName(), 'b')
+      lu.assertEquals(self.a:getValue(), nil)
+    end
+
+    function TestUint16:testSet()
+      lu.assertEquals(self.a:getValue(), nil)
+      self.a:setValue(1)
+      lu.assertEquals(self.a:getValue(), 1)
+      self.a:setValue(200)
+      lu.assertEquals(self.a:getValue(), 200)
+
+      lu.assertEquals(self.b:getValue(), nil)
+      self.b:setValue(1)
+      lu.assertEquals(self.b:getValue(), 1)
+      self.b:setValue(200)
+      lu.assertEquals(self.b:getValue(), 200)
+      lu.assertEquals(self.a:getValue(), 200)
+
+      self.b:setValue(300)
+      lu.assertEquals(self.b:getValue(), 300)
+
+      lu.assertEquals(self.a:getValueAsString(), "200")
+    end
+
+    function TestUint16:testBadValues()
+      lu.assertEquals(self.a:getValue(), nil)
+      self.a:setValue(1)
+      lu.assertEquals(self.a:getValue(), 1)
+      lu.assertError(self.a.setValue, self.a, "a")
+      lu.assertError(self.a.setValue, self.a, 70000)
+      lu.assertError(self.a.setValue, self.a, -1)
+      lu.assertEquals(self.a:getValue(), 1)
+    end
+-- class TestUint16
+
+TestUint32 = {} --class
+    function TestUint32:setup()
+      self.a = yang.basic_types.uint32:create('a')
+      self.b = yang.basic_types.uint32:create('b')
+    end
+
+    function TestUint32:testDefaults()
+      lu.assertEquals(self.a:getType(), "uint32")
+      lu.assertEquals(self.a:getName(), 'a')
+      lu.assertEquals(self.b:getName(), 'b')
+      lu.assertEquals(self.a:getValue(), nil)
+    end
+
+    function TestUint32:testSet()
+      lu.assertEquals(self.a:getValue(), nil)
+      self.a:setValue(1)
+      lu.assertEquals(self.a:getValue(), 1)
+      self.a:setValue(200)
+      lu.assertEquals(self.a:getValue(), 200)
+
+      lu.assertEquals(self.b:getValue(), nil)
+      self.b:setValue(1)
+      lu.assertEquals(self.b:getValue(), 1)
+      self.b:setValue(200)
+      lu.assertEquals(self.b:getValue(), 200)
+      lu.assertEquals(self.a:getValue(), 200)
+
+      self.b:setValue(70000)
+      lu.assertEquals(self.b:getValue(), 70000)
+
+
+      lu.assertEquals(self.a:getValueAsString(), "200")
+    end
+
+    function TestUint32:testBadValues()
+      lu.assertEquals(self.a:getValue(), nil)
+      self.a:setValue(1)
+      lu.assertEquals(self.a:getValue(), 1)
+      lu.assertError(self.a.setValue, self.a, "a")
+      lu.assertError(self.a.setValue, self.a, 5000000000)
+      lu.assertError(self.a.setValue, self.a, -1)
+      lu.assertEquals(self.a:getValue(), 1)
+    end
+-- class TestUint32
 
 TestBoolean = {}
   function TestBoolean:setup()
@@ -67,6 +184,9 @@ TestBoolean = {}
     self.b.setValue(false)
     lu.assertEquals(self.b:getValue(), false)
     self.b.setValue(true)
+    lu.assertEquals(self.b:getValue(), true)
+
+    lu.assertError(self.b.setValue, self, "asdf")
     lu.assertEquals(self.b:getValue(), true)
   end
 -- class TestBoolean
