@@ -11,10 +11,6 @@ local _M = {}
 local YangNode = util.subClass("YangNode", nil)
 local YangNode_mt = { __index = YangNode }
   function YangNode:create(typeName, nodeName, mandatory)
-    if type(nodeName) ~= 'string' then
-      print("NODENAME: " .. nodeName)
-      error("missing mandatory argument nodeName in yang_type:create() for " .. typeName)
-    end
     local new_inst = {}
     setmetatable(new_inst, YangNode)
     new_inst.value = nil
@@ -108,7 +104,6 @@ local YangNode_mt = { __index = YangNode }
       return self:getName()
     end
   end
--- class YangNode not exported
 _M.YangNode = YangNode
 
 local uint8 = util.subClass("uint8", YangNode)
