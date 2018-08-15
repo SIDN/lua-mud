@@ -38,6 +38,8 @@ TestUtil = {} --class
     local expect = "a,b,c"
     local result = yang.util.str_join(",", input)
     lu.assertEquals(result, expect)
+
+    lu.assertEquals(yang.util.str_join("", {}), "")
   end
 
   function TestUtil:test_split_one()
@@ -99,6 +101,18 @@ TestUtil = {} --class
     list_name, list_index = get_path_list_index(input)
     lu.assertEquals(list_name, nil)
     lu.assertEquals(list_index, nil)
+  end
+
+  function TestUtil:test_get_index_of()
+    local list = { [1] = "a", [2] = "b", [3] = "c" }
+    lu.assertEquals(yang.util.get_index_of(list, "a"), 1)
+    lu.assertEquals(yang.util.get_index_of(list, "b"), 2)
+    lu.assertEquals(yang.util.get_index_of(list, "c"), 3)
+    lu.assertError(yang.util.get_index_of, list, "d")
+  end
+
+  function TestUtil:test_tdump()
+    yang.util.tdump({})
   end
 
   --function TestUtil:test_other_split()

@@ -2,6 +2,7 @@
 
 local yang = require "yang"
 local lu = require('luaunit')
+local json = require('cjson')
 
 -- create a fake basic type for the first set of tests
 local test_type = yang.util.subClass('test', yang.basic_types.YangNode)
@@ -56,8 +57,6 @@ TestUInt8 = {} --class
       lu.assertEquals(self.b:getValue(), 200)
 
       lu.assertEquals(self.a:getValue(), 200)
-
-      lu.assertEquals(self.a:getValueAsString(), "200")
     end
 
     function TestUInt8:testBadValues()
@@ -100,8 +99,6 @@ TestUint16 = {} --class
 
       self.b:setValue(300)
       lu.assertEquals(self.b:getValue(), 300)
-
-      lu.assertEquals(self.a:getValueAsString(), "200")
     end
 
     function TestUint16:testBadValues()
@@ -145,8 +142,6 @@ TestUint32 = {} --class
       self.b:setValue(70000)
       lu.assertEquals(self.b:getValue(), 70000)
 
-
-      lu.assertEquals(self.a:getValueAsString(), "200")
     end
 
     function TestUint32:testBadValues()
@@ -173,23 +168,76 @@ TestBoolean = {}
     lu.assertEquals(self.b:getValue(), nil)
   end
 
-  function TestBoolean:setSet()
-    lu.assertEquals(self.a.getValue(), nil)
-    self.a.setValue(false)
+  function TestBoolean:testSet()
+    lu.assertEquals(self.a:getValue(), nil)
+    self.a:setValue(false)
     lu.assertEquals(self.a:getValue(), false)
-    self.a.setValue(true)
+    self.a:setValue(true)
     lu.assertEquals(self.a:getValue(), true)
 
-    lu.assertEquals(self.b:getValue(), true)
-    self.b.setValue(false)
+    lu.assertEquals(self.b:getValue(), nil)
+    self.b:setValue(false)
     lu.assertEquals(self.b:getValue(), false)
-    self.b.setValue(true)
+    self.b:setValue(true)
     lu.assertEquals(self.b:getValue(), true)
 
     lu.assertError(self.b.setValue, self, "asdf")
     lu.assertEquals(self.b:getValue(), true)
   end
 -- class TestBoolean
+
+TestString = {}
+  function TestString:setup()
+    self.a = yang.basic_types.string:create('a')
+    self.b = yang.basic_types.string:create('b')
+  end
+
+  function TestString:testDefaults()
+    lu.assertEquals(self.a:getName(), 'a')
+    lu.assertEquals(self.b:getName(), 'b')
+  end
+
+  function TestString:testSet()
+    lu.assertEquals(self.a:getValue(), nil)
+    self.a:setValue("foobar")
+    lu.assertEquals(self.a:getValue(), "foobar")
+
+    lu.assertNotEquals(self.a:getValue(), self.b:getValue())
+    self.b:setValue("foobar")
+    lu.assertEquals(self.a:getValue(), self.b:getValue())
+
+    lu.assertError(self.b.setValue, self.b, 1)
+  end
+-- class TestString
+
+TestContainer = {}
+  function TestContainer:setup()
+    self.a = yang.basic_types.container:create('a')
+    self.a:add_node(yang.basic_types.uint16:create('number'), false)
+    self.a:add_node(yang.basic_types.string:create('string'), false)
+  end
+
+  function TestContainer:testSet()
+  end
+-- class TestContainer
+
+TestList = {}
+  function TestList:setup()
+    self.a = yang.basic_types.list:create('a')
+    self.a:add_list_node(yang.basic_types.uint16:create('number'), false)
+    self.a:add_list_node(yang.basic_types.string:create('string'), false)
+  end
+
+  function TestList:testGetSet()
+    lu.assertEquals(self.a:getValue(), {})
+    lu.assertEquals(self.a:hasValue(), false)
+
+    local data = {[1]={number=123, string='example'}}
+    self.a:fromData(data)
+    lu.assertEquals(self.a:hasValue(), true)
+    lu.assertEquals(self.a:toData(), data)
+  end
+-- class TestList
 
 TestURI = {}
   function TestURI:setup()
@@ -198,7 +246,7 @@ TestURI = {}
   end
 
   function TestURI:testDefaults()
-    lu.assertEquals(self.a:getType(), "inet:uri")
+    lu.assertEquals(self.a:getType(), "inet_uri")
       lu.assertEquals(self.a:getName(), 'a')
       lu.assertEquals(self.b:getName(), 'b')
     lu.assertEquals(self.a:getValue(), nil)
@@ -254,27 +302,43 @@ TestDateTime = {}
   end
 -- class TestDateTime
 
-TestString = {}
-  function TestString:setup()
-    self.a = yang.basic_types.string:create('a')
-    self.b = yang.basic_types.string:create('b')
+
+TestMacAddress = {}
+  function TestMacAddress:setup()
+    self.a = yang.basic_types.mac_address:create('a')
+    self.b = yang.basic_types.mac_address:create('b')
+    self.c = yang.basic_types.mac_address:create('c')
   end
 
-  function TestString:testDefaults()
-    lu.assertEquals(self.a:getName(), 'a')
-    lu.assertEquals(self.b:getName(), 'b')
-  end
-
-  function TestString:setValue()
+  function TestMacAddress:testSet()
     lu.assertEquals(self.a:getValue(), nil)
-    self.a.setValue("foobar")
-    lu.assertEquals(self.a:getValue(), "foobar")
-
-    lu.assertNotEquals(self.a:getValue(), self.b.getValue())
-    self.b.setValue("foobar")
-    lu.assertEquals(self.a:getValue(), self.b.getValue())
+    self.a:setValue("aa:bb:cc:dd:ee:ff")
+    lu.assertEquals(self.a:getValue(), "aa:bb:cc:dd:ee:ff")
+    self.a:setValue("00:11:22:33:44:55")
+    lu.assertEquals(self.a:getValue(), "00:11:22:33:44:55")
+    lu.assertError(self.a.setValue, self.a, "foobar")
+    lu.assertEquals(self.a:getValue(), "00:11:22:33:44:55")
+    lu.assertError(self.a.setValue, self.a, 1)
+    lu.assertEquals(self.a:getValue(), "00:11:22:33:44:55")
   end
--- class TestString
+-- class TestMacAddress
 
---lu.run()
+
+
+TestACL = {}
+  function TestACL:setup()
+    self.a = yang.complex_types.acl_type:create('a')
+  end
+
+  function TestACL:testSet()
+    lu.assertEquals(self.a:getValue(), nil)
+    lu.assertError(self.a.setValue, self.a, 123)
+    lu.assertEquals(self.a:getValue(), nil)
+
+    local data = "aaaa"
+    lu.assertError(self.a.setValue, self.a, data)
+  end
+-- class TestMacAddress
+
+
 

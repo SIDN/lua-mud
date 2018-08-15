@@ -67,7 +67,6 @@ end
 function _M.get_index_of(list, element)
   for i,v in pairs(list) do
     if v == element then
-      print("[XX] yooy: " .. i)
       return i
     end
   end
@@ -100,7 +99,7 @@ local function tdump (tbl, indent)
     end
   end
 end
-
+_M.tdump = tdump
 
 -- Based on http://lua-users.org/wiki/InheritanceTutorial
 -- Defining a class with inheritsFrom instead of just {} will
@@ -110,12 +109,12 @@ function _M.subClass( classNameString, baseClass )
     local new_class = {}
     local class_mt = { __index = new_class }
 
-    function new_class:create()
-        local newinst = {}
-        setmetatable( newinst, class_mt )
-        print("[Xx] creating new subclass: " .. classNameString)
-        return newinst
-    end
+--     function new_class:create()
+--        local newinst = {}
+--        setmetatable( newinst, class_mt )
+--        print("[Xx] creating new subclass: " .. classNameString)
+--        return newinst
+--    end
 
     if nil ~= baseClass then
         setmetatable( new_class, { __index = baseClass } )
