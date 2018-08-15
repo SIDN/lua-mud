@@ -37,10 +37,6 @@ local YangNode_mt = { __index = YangNode }
     return self.value
   end
 
-  function YangNode:getValueAsString()
-    return tostring(self.value)
-  end
-
   function YangNode:hasValue(value)
     return self.value ~= nil
   end
@@ -190,7 +186,7 @@ _M.boolean = boolean
 local inet_uri = util.subClass("inet_uri", YangNode)
 inet_uri_mt = { __index = inet_uri }
   function inet_uri:create(nodeName, mandatory)
-    local new_inst = YangNode:create("inet:uri", nodeName, mandatory)
+    local new_inst = YangNode:create("inet_uri", nodeName, mandatory)
     setmetatable(new_inst, inet_uri_mt)
     return new_inst
   end
@@ -233,7 +229,7 @@ _M.date_and_time = date_and_time
 local mac_address = util.subClass("mac_address", YangNode)
 mac_address_mt = { __index = mac_address }
   function mac_address:create(nodeName, mandatory)
-    local new_inst = YangNode:create("inet:uri", nodeName, mandatory)
+    local new_inst = YangNode:create("mac_address", nodeName, mandatory)
     setmetatable(new_inst, mac_address_mt)
     return new_inst
   end
@@ -253,7 +249,7 @@ _M.mac_address = mac_address
 local eth_ethertype = util.subClass("eth_ethertype", YangNode)
 eth_ethertype_mt = { __index = eth_ethertype }
   function eth_ethertype:create(nodeName, mandatory)
-    local new_inst = YangNode:create("inet:uri", nodeName, mandatory)
+    local new_inst = YangNode:create("eth_ethertype", nodeName, mandatory)
     setmetatable(new_inst, eth_ethertype_mt)
     return new_inst
   end
@@ -266,7 +262,7 @@ _M.eth_ethertype = eth_ethertype
 local inet_dscp = util.subClass("inet_dscp", YangNode)
 inet_dscp_mt = { __index = inet_dscp }
   function inet_dscp:create(nodeName, mandatory)
-    local new_inst = YangNode:create("inet:uri", nodeName, mandatory)
+    local new_inst = YangNode:create("inet_dscp", nodeName, mandatory)
     setmetatable(new_inst, inet_dscp_mt)
     return new_inst
   end
@@ -279,7 +275,7 @@ _M.inet_dscp = inet_dscp
 local bits = util.subClass("bits", YangNode)
 bits_mt = { __index = bits }
   function bits:create(nodeName, mandatory)
-    local new_inst = YangNode:create("inet:uri", nodeName, mandatory)
+    local new_inst = YangNode:create("bits", nodeName, mandatory)
     setmetatable(new_inst, bits_mt)
     return new_inst
   end
@@ -302,7 +298,7 @@ string_mt = { __index = string }
     if type(value) == 'string' then
       self.value = value
     else
-      error("type error: " .. self:getType() .. ".setValue() with type " .. type(value) .. " instead of number")
+      error("type error: " .. self:getType() .. ".setValue() with type " .. type(value) .. " instead of string")
     end
   end
 _M.string = string
@@ -339,11 +335,14 @@ container_mt = { __index = container }
   end
 
   function container:fromData(json_data, check_all_data_used)
+    -- make a copy of the data, which we can use to track whether all
+    -- elements have been processed
+    local data_copy = util.deepcopy(json_data)
     for node_name, node in pairs(self.yang_nodes) do
       if json_data[node_name] ~= nil then
         node:fromData(json_data[node_name])
         node:setParent(self)
-        json_data[node_name] = nil
+        data_copy[node_name] = nil
       elseif node:isMandatory() then
         --error('mandatory node ' .. node_name .. ' not found in: ' .. json.encode(json_data[node_name]))
         error('mandatory node ' .. node_name .. ' not found in: ' .. json.encode(json_data))
@@ -352,7 +351,7 @@ container_mt = { __index = container }
       end
     end
 
-    if json.encode(json_data) ~= "{}" then
+    if json.encode(data_copy) ~= "{}" then
       error("Unhandled data: " .. json.encode(json_data))
     end
   end
@@ -362,23 +361,6 @@ container_mt = { __index = container }
       if node:hasValue() then return true end
     end
     return false
-  end
-
-  function container:print()
-    print(self:getValueAsString())
-  end
-
-  function container:getValueAsString()
-    local result = "{ "
-    for node_name, node in pairs(self.yang_nodes) do
-      if node:hasValue() then
-        result = result .. "  " .. node_name .. ": " .. node:getValueAsString() .. "\n"
-      else
-        result = result .. "  " .. node_name .. ": <not set>\n"
-      end
-    end
-    result = result .. "}\n"
-    return result
   end
 
   function container:toData()
@@ -515,22 +497,6 @@ list_mt = { __index = list }
       new_el:fromData(data_el)
       new_el:setParent(self)
     end
-  end
-
-  function list:getValueAsString()
-    local result = " <LIST> [\n"
-    for i,v in pairs(self.value) do
-      for name,ye in pairs(v.yang_nodes) do
-        result = result .. "  " .. name .. ": " .. ye:getValueAsString() .. ",\n"
-      end
-      result = result .. ",\n"
-    end
-    result = result .. "\n]\n"
-    return result
-  end
-
-  function list:print()
-    print(self:getValueAsString())
   end
 
   -- Returns the list elements as raw data
