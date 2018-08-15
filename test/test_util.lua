@@ -108,7 +108,7 @@ TestUtil = {} --class
     lu.assertEquals(yang.util.get_index_of(list, "a"), 1)
     lu.assertEquals(yang.util.get_index_of(list, "b"), 2)
     lu.assertEquals(yang.util.get_index_of(list, "c"), 3)
-    --lu.assertError(yang.util.get_index_of, list, "d")
+    lu.assertError(yang.util.get_index_of, list, "d")
   end
 
   function TestUtil:test_tdump()
