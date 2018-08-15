@@ -92,12 +92,25 @@ local YangNode_mt = { __index = YangNode }
     self.parent = node
   end
 
-  function YangNode:getPath()
+  -- set data_incomplete to true if the getPath() is called while fromData() has not finished yet
+  -- (it might need to find a path for a value it was parsing, which then does not exist in the
+  -- internal data structure yet. In that case, we use the max index when showing list paths if the
+  -- item is not found)
+  function YangNode:getPath(data_incomplete)
     -- TODO: make a specific one for list, it needs the index
-    if self:getParent() ~= nil then
-      return self:getParent():getPath() .. "/" .. self:getName()
+    if self:getParent() ~= nil and self:getParent():getType() == 'list' then
+      print("[XX] getPath in list " .. self:getName())
+      print("[XX] parent name: " .. self:getParent():getName())
+      print(self:getParent():getValue())
+      result = self:getParent():getPath(data_incomplete) .. "[" .. util.get_index_of(self:getParent():getValue(), self, data_incomplete) .. "]"
+      print("[XX] getPath in list found result")
+      return result
     else
-      return self:getName()
+      if self:getParent() ~= nil then
+        return self:getParent():getPath(data_incomplete) .. "/" .. self:getName()
+      else
+        return self:getName()
+      end
     end
   end
 _M.YangNode = YangNode
@@ -331,6 +344,7 @@ container_mt = { __index = container }
 
   function container:add_node(node_type_instance)
     if node_type_instance == nil then error("container:add_node() called with nil node_type_instance") end
+    node_type_instance:setParent(self)
     self.yang_nodes[node_type_instance:getName()] = node_type_instance
   end
 
@@ -341,7 +355,6 @@ container_mt = { __index = container }
     for node_name, node in pairs(self.yang_nodes) do
       if json_data[node_name] ~= nil then
         node:fromData(json_data[node_name])
-        node:setParent(self)
         data_copy[node_name] = nil
       elseif node:isMandatory() then
         --error('mandatory node ' .. node_name .. ' not found in: ' .. json.encode(json_data[node_name]))
@@ -444,6 +457,14 @@ container_mt = { __index = container }
   end
 _M.container = container
 
+local function list_get_path(node)
+    if node:getParent() == nil then error("PARENT NIL!!!") end
+    print("[XX] LIST_GET_PATH WITH PARENT " .. node:getParent():getName() .. " {type " .. node:getParent():getType() .. "}")
+    print(node:getParent():getValue())
+    print("[XX] OO [XX]")
+    return node:getParent():getPath() .. "[" .. util.get_index_of(node:getParent():getValue(), node) .. "]"
+end
+
 -- we implement lists by making them lists of containers, with
 -- an interface that skips the container part (mostly)
 local list = util.subClass("list", _M.YangNode)
@@ -463,6 +484,9 @@ list_mt = { __index = list }
   -- for that. This is to define what those elements should look like
   function list:add_list_node(node_type_instance)
     self.entry_nodes[node_type_instance:getName()] = node_type_instance
+    print("[XX] SET PARENT OF " .. node_type_instance:getName() .. " TO " .. self:getName())
+    node_type_instance:setParent(self)
+    --node_type_instance.getPath = list_get_path
   end
 
   -- Create a new entry in the list, based on the specification
@@ -473,13 +497,21 @@ list_mt = { __index = list }
     local new_node = _M.container:create('list_entry')
     -- TODO: should this be a deep copy?
     new_node.yang_nodes = util.deepcopy(self.entry_nodes)
+    new_node:setParent(self)
+    new_node.parent = self
     --new_node.value = nil
+    -- make sure the parent of the nodes within 'list_entry' points to the list_entry
     table.insert(self.value, new_node)
+    for i,n in pairs(new_node.yang_nodes) do
+      n:setParent(new_node)
+    end
 
     -- update the childs getPath so it adds the list index
-    function new_node:getPath()
-      return self:getParent():getPath() .. "[" .. util.get_index_of(self:getParent():getValue(), self) .. "]"
-    end
+    print("[XX] set GETPATH of " .. new_node:getName())
+    --function new_node:getPath()
+    --  return self:getParent():getPath() .. "[" .. util.get_index_of(self:getParent():getValue(), self) .. "]"
+    --end
+    --new_node.getPath = list_get_path
     return new_node
   end
   -- TODO: should we error on attempts to use getValue and setValue?
@@ -495,7 +527,6 @@ list_mt = { __index = list }
     for i,data_el in pairs(data) do
       local new_el = self:create_list_element()
       new_el:fromData(data_el)
-      new_el:setParent(self)
     end
   end
 
@@ -569,6 +600,7 @@ choice_mt = { __index = choice }
 
   function choice:add_choice(name, node_type)
     self.choices[name] = node_type
+    node_type:setParent(self)
   end
 
 -- hmm, do we need to differentiate name-based choice and content-based choice?
@@ -592,7 +624,7 @@ choice_mt = { __index = choice }
           if status then found = true end
         end
         if not found then
-          error("Unknown choice value: " .. data_name)
+          error("Unknown choice value: " .. data_name .. " in '" .. self:getPath(true) .."'")
         end
       end
     end

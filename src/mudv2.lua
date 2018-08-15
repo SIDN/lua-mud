@@ -1,4 +1,3 @@
-
 -- MUD container
 
 local json = require("cjson")
@@ -99,6 +98,7 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches:add_choice('udp', matches_tcp)
     matches:add_choice('ipv6', matches_ipv6)
     ace_list:add_list_node(matches)
+    print("[XX] ACES TYPE: " .. aces:getType())
     aces:add_node(ace_list)
 
     local actions = yang.basic_types.container:create('actions')
@@ -295,10 +295,6 @@ mud_mt = { __index = mud }
     -- default values and types go here
 
     new_inst.mud_container = mud_container:create('mud-container', true)
-    new_inst.mud = ietf_mud_type:create('mud')
-
-    --local acl = yang.basic_types.container:create()
-    new_inst.acls = ietf_access_control_list:create('access-control-list')
     return new_inst
   end
 
@@ -312,14 +308,6 @@ mud_mt = { __index = mud }
       if file_name == nil then file_name = "<unknown>" end
       error("Top-level node 'ietf-mud:mud' not found in " .. file_name)
     end
-    local mud_data = json_data['ietf-mud:mud']
-    self.mud:fromData(mud_data)
-
-    if json_data['ietf-access-control-list:acls'] == nil then
-      error("Top-level node 'ietf-access-control-list:acls' not found in " .. json_file_name)
-    end
-    local acls_data = json_data['ietf-access-control-list:acls']
-    self.acls:fromData(acls_data)
   end
 
   -- parse from json file
@@ -343,31 +331,29 @@ mud_mt = { __index = mud }
 
     local rules = {}
     -- find out which incoming and which outgoiing rules we have
-    local from_device_acl_nodelist = self.mud:getNode("from-device-policy/access-lists/access-list")
+    local from_device_acl_nodelist = self.mud_container:getNode("ietf-mud:mud/from-device-policy/access-lists/access-list")
     -- maybe add something like findNodes("/foo/bar[*]/baz/*/name")?
     for i,node in pairs(from_device_acl_nodelist:getValue()) do
       local acl_name = node:getNode('name'):toData()
       -- find with some functionality is definitely needed in types
       -- but xpath is too complex. need to find right level.
       local found = false
-      local acl = yang.findNodeWithProperty(self.acls, "acl", "name", acl_name)
+      local acl = yang.findNodeWithProperty(self.mud_container, "acl", "name", acl_name)
       yang.util.table_extend(rules, aceToRules(acl:getNode('aces'):getNode('ace')))
     end
 
-    local to_device_acl_nodelist = self.mud:getNode("to-device-policy/access-lists/access-list")
+    local to_device_acl_nodelist = self.mud_container:getNode("ietf-mud:mud/to-device-policy/access-lists/access-list")
     -- maybe add something like findNodes("/foo/bar[*]/baz/*/name")?
     for i,node in pairs(to_device_acl_nodelist:getValue()) do
       local acl_name = node:getNode('name'):toData()
       -- find with some functionality is definitely needed in types
       -- but xpath is too complex. need to find right level.
       local found = false
-      local acl = yang.findNodeWithProperty(self.acls, "acl", "name", acl_name)
+      local acl = yang.findNodeWithProperty(self.mud_container, "acl", "name", acl_name)
       yang.util.table_extend(rules, aceToRules(acl:getNode('aces'):getNode('ace')))
     end
     return rules
   end
-
-
 _M.mud = mud
 
 --
@@ -393,5 +379,6 @@ _M.mud = mud
 --
 -- # nft add rule inet filter input ct state related,established accept
 --
+
 
 return _M
