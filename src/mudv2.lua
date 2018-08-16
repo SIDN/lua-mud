@@ -98,7 +98,7 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches:add_choice('udp', matches_tcp)
     matches:add_choice('ipv6', matches_ipv6)
     ace_list:add_list_node(matches)
-    print("[XX] ACES TYPE: " .. aces:getType())
+    --print("[XX] ACES TYPE: " .. aces:getType())
     aces:add_node(ace_list)
 
     local actions = yang.basic_types.container:create('actions')

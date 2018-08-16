@@ -85,10 +85,26 @@ end
 
 -- returns the name and index of a list path (e.g. acls[3])
 -- returns nil, nil if the first part does not contain a list index
+-- there is one special case: if the index is '*' instead of a number,
+-- it returns -1 (where the caller may interpret this as, say
+-- 'pick them all'
 function get_path_list_index(path)
   if path ~= nil then
+    print("[Xx] PATH " .. path)
     local name, index = string.match(path, "^([%w-_]+)%[(%d+)%]")
-    if index ~= nil then return name, tonumber(index) end
+    if index ~= nil then
+      print("[XX] GOT INDEX: " .. index)
+      return name, tonumber(index)
+    else
+      name, wildcard = string.match(path, "^([%w-_]+)%[(%*)%]")
+      print("[XX] ANME")
+      print(name)
+      print(wildcard)
+      if wildcard ~= nil then
+        print("[XX] GOT WILDCARD in '" .. path .. "'")
+        return name, -1
+      end
+    end
   end
 end
 
@@ -188,6 +204,9 @@ function _M.deepcopy(orig)
     return copy
 end
 
+function _M.string_starts_with(full_string, sub_string)
+  return full_string:sub(1, #sub_string) == sub_string
+end
 
 return _M
 

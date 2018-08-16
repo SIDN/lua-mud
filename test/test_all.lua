@@ -7,4 +7,4 @@ require 'test_mud_rulegen'
 require 'test_mud_find'
 
 local lu = require('luaunit')
-lu.run()
+lu.run('--pattern', 'testFindNodes')

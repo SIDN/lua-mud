@@ -9,7 +9,7 @@ local json = require("cjson")
 TestMudFind = {} --class
   function TestMudFind:setup()
     self.a = mu.mud.create()
-    self.a:parseFile("../examples/example_from_draft.json")
+    self.a:parseFile("../examples/custom_example.json")
   end
 
   function TestMudFind:testFind()
@@ -23,7 +23,24 @@ TestMudFind = {} --class
     lu.assertError(yang.findNodeWithProperty, self.a.mud_container, 'no_such_element', 'bar', 2)
   end
 
-  function TestMudFind:testFind3()
+  function print_find_result(node, path)
+    local nodes = yang.findNodes(node, path)
+    print("Path: " .. path)
+    print("Data: ")
+    for i,n in pairs(nodes) do
+      print("    " .. json.encode(n:toData()))
+    end
+    print("------------------------")
+  end
+
+  function TestMudFind:testFindNodes()
+    -- this one is buggy from the looks of it
+    --local some_sub_node = self.a.mud_container:getNode('ietf-access-control-list:acls/acl[1]/name')
+
+    --print_find_result(self.a.mud_container, "/foo")
+    --print_find_result(self.a.mud_container, "/ietf-mud:mud")
+    print_find_result(self.a.mud_container, "/ietf-mud:mud/to-device-policy/access-lists/access-list[*]")
+    --print_find_result(self.a.mud_container, "/ietf-mud:mud/to-device-policy/access-lists/access-list[1]/name")
   end
 -- class testMud
 
