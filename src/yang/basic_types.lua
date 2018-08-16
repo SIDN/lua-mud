@@ -410,8 +410,6 @@ container_mt = { __index = container }
 
   function container:getNode(path, given_list_index)
     -- get and remove the first section of the path
-    --local part, rest = path.
-    -- validate it
     local first, rest = util.str_split_one(path, "/")
     local list_name, list_index = get_path_list_index(first)
     if list_name ~= nil then
@@ -484,7 +482,7 @@ list_mt = { __index = list }
   -- for that. This is to define what those elements should look like
   function list:add_list_node(node_type_instance)
     self.entry_nodes[node_type_instance:getName()] = node_type_instance
-    print("[XX] SET PARENT OF " .. node_type_instance:getName() .. " TO " .. self:getName())
+    --print("[XX] SET PARENT OF " .. node_type_instance:getName() .. " TO " .. self:getName())
     node_type_instance:setParent(self)
     --node_type_instance.getPath = list_get_path
   end
@@ -507,7 +505,6 @@ list_mt = { __index = list }
     end
 
     -- update the childs getPath so it adds the list index
-    print("[XX] set GETPATH of " .. new_node:getName())
     --function new_node:getPath()
     --  return self:getParent():getPath() .. "[" .. util.get_index_of(self:getParent():getValue(), self) .. "]"
     --end
