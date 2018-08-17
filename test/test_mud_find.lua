@@ -33,14 +33,56 @@ TestMudFind = {} --class
     print("------------------------")
   end
 
-  function TestMudFind:testFindNodes()
-    -- this one is buggy from the looks of it
-    --local some_sub_node = self.a.mud_container:getNode('ietf-access-control-list:acls/acl[1]/name')
+  function TestMudFind:testFindNodesPaths()
+    -- some full path
+    local nodes = yang.findNodes(self.a.mud_container, "/ietf-mud:mud/to-device-policy/access-lists/access-list[1]/name")
+    local expect = { "mud-76100-v6to" }
+    lu.assertEquals(yang.nodeListToData(nodes), expect)
 
-    --print_find_result(self.a.mud_container, "/foo")
-    --print_find_result(self.a.mud_container, "/ietf-mud:mud")
-    print_find_result(self.a.mud_container, "/ietf-mud:mud/to-device-policy/access-lists/access-list[*]")
-    --print_find_result(self.a.mud_container, "/ietf-mud:mud/to-device-policy/access-lists/access-list[1]/name")
+    -- relative path (which is the same since we start at the root node)
+    nodes = yang.findNodes(self.a.mud_container, "ietf-mud:mud/to-device-policy/access-lists/access-list[1]/name")
+    expect = { "mud-76100-v6to" }
+    lu.assertEquals(yang.nodeListToData(nodes), expect)
+
+    -- A different list element
+    nodes = yang.findNodes(self.a.mud_container, "/ietf-mud:mud/to-device-policy/access-lists/access-list[2]/name")
+    expect = { "second-acl" }
+    lu.assertEquals(yang.nodeListToData(nodes), expect)
+
+    -- All list elements. Note that the results show up as separate entries
+    nodes = yang.findNodes(self.a.mud_container, "/ietf-mud:mud/to-device-policy/access-lists/access-list[*]/name")
+    expect = { "mud-76100-v6to", "second-acl" }
+    lu.assertEquals(yang.nodeListToData(nodes), expect)
+
+    -- All list elements, but without the 'name' part. Results are separate entries including table entry names
+    nodes = yang.findNodes(self.a.mud_container, "/ietf-mud:mud/to-device-policy/access-lists/access-list[*]")
+    expect = {{ name="mud-76100-v6to" }, { name="second-acl" }}
+    lu.assertEquals(yang.nodeListToData(nodes), expect)
+
+    -- The list itself, which shows up as one entry (which is a list of tables)
+    nodes = yang.findNodes(self.a.mud_container, "/ietf-mud:mud/to-device-policy/access-lists/access-list")
+    expect = {{{ name="mud-76100-v6to" }, { name="second-acl" }}}
+    lu.assertEquals(yang.nodeListToData(nodes), expect)
+
+    -- A wildcard for a name (which happens to only have one result)
+    nodes = yang.findNodes(self.a.mud_container, "/ietf-mud:mud/to-device-policy/*")
+    expect = {{ ["access-list"]={{name="mud-76100-v6to"}, {name="second-acl"}} }}
+    lu.assertEquals(yang.nodeListToData(nodes), expect)
+  end
+
+
+  function TestMudFind:testFindNodesFromSubNode()
+    -- take some node from down the tree, so we can check whether absolute paths work
+    local sub = yang.findNodes(self.a.mud_container, "/ietf-mud:mud/to-device-policy")[1]
+    lu.assertEquals(sub:getName(), 'to-device-policy')
+
+    --nodes = yang.findNodes(sub, "access-lists/access-list[2]/name")
+    --expect = { "second-acl" }
+    --lu.assertEquals(yang.nodeListToData(nodes), expect)
+
+    nodes = yang.findNodes(sub, "/ietf-mud:mud/to-device-policy/access-lists/access-list[2]/name")
+    expect = { "second-acl" }
+    lu.assertEquals(yang.nodeListToData(nodes), expect)
   end
 -- class testMud
 
