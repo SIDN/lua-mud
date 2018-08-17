@@ -120,14 +120,14 @@ ietf_mud_type_mt = { __index = ietf_mud_type }
   function ietf_mud_type:create(nodeName, mandatory)
     local new_inst = yang.basic_types.container:create(nodeName, mandatory)
     -- additional step: add the type name
-    new_inst.typeName = "mud"
+    new_inst.typeName = "ietf-mud:mud"
     setmetatable(new_inst, ietf_mud_type_mt)
     new_inst:add_definition()
     return new_inst
   end
 
   function ietf_mud_type:add_definition()
-    local c = yang.basic_types.container:create('mud')
+    local c = yang.basic_types.container:create('ietf-mud:mud')
     c:add_node(yang.basic_types.uint8:create('mud-version', 'mud-version'))
     c:add_node(yang.basic_types.inet_uri:create('mud-url', 'mud-url', true))
     c:add_node(yang.basic_types.date_and_time:create('last-update'))
@@ -193,7 +193,7 @@ mud_container_mt = { __index = mud_container }
 
   function mud_container:add_definition()
     self:add_node(ietf_mud_type:create('ietf-mud:mud', true))
-     self:add_node(ietf_access_control_list:create('ietf-access-control-list:acls', true))
+    self:add_node(ietf_access_control_list:create('ietf-access-control-list:acls', true))
   end
 -- mud_container
 

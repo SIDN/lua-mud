@@ -65,6 +65,7 @@ end
 
 -- Finds the index of the given element in the given list
 function _M.get_index_of(list, element, max_list_if_not_found)
+  if element == nil then error("get_index_of() called with nil element") end
   if max_list_if_not_found then
     print("OLALAL")
   end
