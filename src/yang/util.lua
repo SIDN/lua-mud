@@ -66,10 +66,6 @@ end
 -- Finds the index of the given element in the given list
 function _M.get_index_of(list, element, max_list_if_not_found)
   if element == nil then error("get_index_of() called with nil element") end
-  if max_list_if_not_found then
-    print("OLALAL")
-  end
-
   for i,v in pairs(list) do
     if v == element then
       return i
@@ -91,18 +87,12 @@ end
 -- 'pick them all'
 function get_path_list_index(path)
   if path ~= nil then
-    print("[Xx] PATH " .. path)
     local name, index = string.match(path, "^([%w-_]+)%[(%d+)%]")
     if index ~= nil then
-      print("[XX] GOT INDEX: " .. index)
       return name, tonumber(index)
     else
       name, wildcard = string.match(path, "^([%w-_]+)%[(%*)%]")
-      print("[XX] ANME")
-      print(name)
-      print(wildcard)
       if wildcard ~= nil then
-        print("[XX] GOT WILDCARD in '" .. path .. "'")
         return name, -1
       end
     end

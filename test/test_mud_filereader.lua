@@ -93,41 +93,5 @@ TestMudFileReader = {} --class
 
     lu.assertEquals(paths, expected)
   end
-
-  function TestMudFileReader:footestGetPath()
-    self.a:parseFile("../examples/example_from_draft.json")
-    --for i,n in pairs(self.a.mud_container:getAll()) do
-    --  print(n:getPath())
-    --end
-    local n = yang.findSingleNode(self.a.mud_container, "ietf-access-control-list:acls/acl[1]/aces/ace[1]")
-    local cur_n = n
-    while cur_n:getParent() ~= nil do
-      if n:hasValue() then
-        print(cur_n:getName() .. " (" .. cur_n:getType() .. ") HAS VALUE")
-        print(json.encode(cur_n:toData()))
-      else
-        print(cur_n:getName() .. " (" .. cur_n:getType() .. ") HAS NO VALUE")
-      end
-
-      if true then
-      if cur_n:getParent():isa(yang.basic_types.list) then
-        print("[X] parent (" .. cur_n:getParent():getName() .. ") is list (" .. cur_n:getParent():getType() .. ")")
-        print("element table: ")
-        print(cur_n)
-        print(json.encode(cur_n:toData()))
-        print("list tables:")
-        for i,n in pairs(cur_n:getParent().value) do
-          print(n)
-          print(json.encode(n:toData()))
-        end
-        print("our index is " .. yang.util.get_index_of(cur_n:getParent().value, cur_n))
-      end
-      end
-
-      cur_n = cur_n:getParent()
-    end
-    --print(json.encode(n:toData()))
-    --print(n:getPath())
-  end
--- class testMud
+-- class testMudFileReader
 

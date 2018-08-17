@@ -7,5 +7,5 @@ require 'test_mud_rulegen'
 require 'test_mud_find'
 
 local lu = require('luaunit')
-lu.run('--pattern', 'testGetPath')
---lu.run()
+--lu.run('--pattern', 'testGetPath')
+lu.run()

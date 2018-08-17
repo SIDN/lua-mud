@@ -89,9 +89,6 @@ local YangNode_mt = { __index = YangNode }
   end
 
   function YangNode:setParent(node)
-    print("[XX] setting parent to ")
-    print(node)
-    print(debug.traceback())
     self.parent = node
   end
 
@@ -102,18 +99,7 @@ local YangNode_mt = { __index = YangNode }
   function YangNode:getPath(data_incomplete)
     -- TODO: make a specific one for list, it needs the index
     if self:getParent() ~= nil and self:getParent():getType() == 'list' then
-      print("[XX] getPath for " .. self:getName() .. " in list " .. self:getParent():getName())
-      if (self:hasValue()) then
-        print("ELEMENT HAS VALUE")
-      else
-        print("ELEMENT DOES NOT HAVE VALUE")
-      end
-      print("ELEMENT TO FIND IS " .. self:getType())
-      print(json.encode(self:toData()))
-      print("ELEMENT IN LIST:")
-      print(json.encode(self:getParent():toData()))
       result = self:getParent():getPath(data_incomplete) .. "[" .. util.get_index_of(self:getParent():getValue(), self, data_incomplete) .. "]"
-      print("[XX] getPath in list found result")
       return result
     else
       if self:getParent() ~= nil then
@@ -373,7 +359,6 @@ container_mt = { __index = container }
         --error('mandatory node ' .. node_name .. ' not found in: ' .. json.encode(json_data[node_name]))
         error('mandatory node ' .. node_name .. ' not found in: ' .. json.encode(json_data))
       --else
-      --  print("[XX] node with name " .. node_name .. " has no value but not mandatory: " .. json.encode(node:isMandatory()))
       end
     end
 
@@ -394,16 +379,7 @@ container_mt = { __index = container }
     for name,value in pairs(self.yang_nodes) do
       local v = value:toData()
       -- exclude empty nodes
-      --print("[XX] CONTAINER TODATA: " .. json.encode(v))
       if v ~= nil and (type(v) ~= 'table' or tablelength(v) > 0) then
-          --print("[XX] ADDING TO CONTAINER: " .. name .. " = " .. json.encode(v))
-          --if json.encode(v) == "{}" then
-          --  print("[XX][XX]")
-          --  print(v~=nil)
-          --  print(type(v) ~= 'table')
-          --  print("[XX][XX]")
-          --  error("bad, empty data should not be here " .. json.encode(tablelength(v)))
-          --end
           result[name] = v
       end
       --  value:toData()
@@ -472,9 +448,6 @@ _M.container = container
 
 local function list_get_path(node)
     if node:getParent() == nil then error("PARENT NIL!!!") end
-    print("[XX] LIST_GET_PATH WITH PARENT " .. node:getParent():getName() .. " {type " .. node:getParent():getType() .. "}")
-    print(node:getParent():getValue())
-    print("[XX] OO [XX]")
     return node:getParent():getPath() .. "[" .. util.get_index_of(node:getParent():getValue(), node) .. "]"
 end
 
@@ -497,7 +470,6 @@ list_mt = { __index = list }
   -- for that. This is to define what those elements should look like
   function list:add_list_node(node_type_instance)
     self.entry_nodes[node_type_instance:getName()] = node_type_instance
-    --print("[XX] SET PARENT OF " .. node_type_instance:getName() .. " TO " .. self:getName())
     node_type_instance:setParent(self)
     --node_type_instance.getPath = list_get_path
   end
@@ -650,7 +622,6 @@ choice_mt = { __index = choice }
       --if node:getValue() ~= nil then
       local v = node:toData()
       if v ~= nil and (type(v) ~= 'table' or tablelength(v) > 0) then
-        --print("[XX] CHOICE TODATA: " .. json.encode(node:toData()))
         result[name] = node:toData()
       end
       -- TODO this seems wrong
@@ -659,8 +630,6 @@ choice_mt = { __index = choice }
           return v
         end
       end
-      --print("[XX] RETURNING CHOICE: " .. json.encode(result))
-      --print("[XX] CHOICE RESULT SIZE: " .. json.encode(tablelength(result)))
     end
     return result
   end
@@ -688,7 +657,6 @@ choice_mt = { __index = choice }
       -- TODO: yeah we really need a hasValue() check
       local v = node:toData()
       if v ~= nil and (type(v) ~= 'table' or tablelength(v) > 0) then
-        --print("[XX] CHOICE TODATA: " .. json.encode(node:toData()))
         table.insert(result, node)
       end
     end
