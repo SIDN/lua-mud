@@ -163,6 +163,9 @@ ietf_mud_type_mt = { __index = ietf_mud_type }
 
     -- it's a presence container, so we *replace* the base node list instead of adding to it
     self.yang_nodes = c.yang_nodes
+    for i,n in pairs(self.yang_nodes) do
+      n:setParent(self)
+    end
   end
 -- class ietf_mud_type
 
