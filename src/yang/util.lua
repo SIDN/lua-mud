@@ -87,11 +87,11 @@ end
 -- 'pick them all'
 function get_path_list_index(path)
   if path ~= nil then
-    local name, index = string.match(path, "^([%w-_]+)%[(%d+)%]")
+    local name, index = string.match(path, "^([%w-_]*)%[(%d+)%]")
     if index ~= nil then
       return name, tonumber(index)
     else
-      name, wildcard = string.match(path, "^([%w-_]+)%[(%*)%]")
+      name, wildcard = string.match(path, "^([%w-_]*)%[(%*)%]")
       if wildcard ~= nil then
         return name, -1
       end

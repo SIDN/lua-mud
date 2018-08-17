@@ -289,6 +289,23 @@ function aceToRules(ace_node)
     return rules
 end
 
+
+function aceToRulesIPTables(ace_node)
+  local nodes = ace_node:getAll()
+  print("[XX] ACE NODE: " .. ace_node:getType())
+  -- small trick, use getParent() so we can have a path request on the entire list
+  local nodes = yang.findNodes(ace_node:getParent(), "ace[*]/matches")
+  local paths = {}
+  for i,n in pairs(nodes) do
+    table.insert(paths, n:getPath())
+    print(json.encode(n:toData()))
+  end
+
+  return paths
+end
+
+
+
 local mud = {}
 mud_mt = { __index = mud }
   -- create an empty mud container
@@ -354,6 +371,36 @@ mud_mt = { __index = mud }
       local found = false
       local acl = yang.findNodeWithProperty(self.mud_container, "acl", "name", acl_name)
       yang.util.table_extend(rules, aceToRules(acl:getNode('aces'):getNode('ace')))
+    end
+    return rules
+  end
+
+  function mud:makeRulesIPTables()
+    -- first do checks, etc.
+    -- TODO ;)
+
+    local rules = {}
+    -- find out which incoming and which outgoiing rules we have
+    local from_device_acl_nodelist = self.mud_container:getNode("ietf-mud:mud/from-device-policy/access-lists/access-list")
+    -- maybe add something like findNodes("/foo/bar[*]/baz/*/name")?
+    for i,node in pairs(from_device_acl_nodelist:getValue()) do
+      local acl_name = node:getNode('name'):toData()
+      -- find with some functionality is definitely needed in types
+      -- but xpath is too complex. need to find right level.
+      local found = false
+      local acl = yang.findNodeWithProperty(self.mud_container, "acl", "name", acl_name)
+      yang.util.table_extend(rules, aceToRulesIPTables(acl:getNode('aces'):getNode('ace')))
+    end
+
+    local to_device_acl_nodelist = self.mud_container:getNode("ietf-mud:mud/to-device-policy/access-lists/access-list")
+    -- maybe add something like findNodes("/foo/bar[*]/baz/*/name")?
+    for i,node in pairs(to_device_acl_nodelist:getValue()) do
+      local acl_name = node:getNode('name'):toData()
+      -- find with some functionality is definitely needed in types
+      -- but xpath is too complex. need to find right level.
+      local found = false
+      local acl = yang.findNodeWithProperty(self.mud_container, "acl", "name", acl_name)
+      yang.util.table_extend(rules, aceToRulesIPTables(acl:getNode('aces'):getNode('ace')))
     end
     return rules
   end
