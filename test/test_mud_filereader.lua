@@ -1,6 +1,7 @@
 #!/usr/bin/lua
 
 local mu = require("mudv2")
+local yang = require("yang")
 local lu = require("luaunit")
 
 local json = require("cjson")
@@ -39,6 +40,94 @@ TestMudFileReader = {} --class
     lu.assertError(self.a.mud_container.getNode, self.a.mud, "from-device-policy/access-lists/access-list[100]/name")
     lu.assertError(self.a.mud_container.getNode, self.a.mud, "from-device-policy/access-lists/access-list[-1]/name")
     lu.assertError(self.a.mud_container.getNode, self.a.mud, "from-device-policy/access-lists/access-list/name")
+  end
+
+  function TestMudFileReader:testGetPath()
+    self.a:parseFile("../examples/example_from_draft.json")
+    local paths = {}
+    for i,n in pairs(self.a.mud_container:getAll()) do
+      table.insert(paths, n:getPath())
+    end
+    local expected = {
+      "mud-container",
+      "mud-container/ietf-mud:mud",
+      "mud-container/ietf-mud:mud/to-device-policy",
+      "mud-container/ietf-mud:mud/to-device-policy/access-lists",
+      "mud-container/ietf-mud:mud/to-device-policy/access-lists/access-list",
+      "mud-container/ietf-mud:mud/to-device-policy/access-lists/access-list[1]",
+      "mud-container/ietf-mud:mud/to-device-policy/access-lists/access-list[1]/name",
+      "mud-container/ietf-mud:mud/from-device-policy",
+      "mud-container/ietf-mud:mud/from-device-policy/access-lists",
+      "mud-container/ietf-mud:mud/from-device-policy/access-lists/access-list",
+      "mud-container/ietf-mud:mud/from-device-policy/access-lists/access-list[1]",
+      "mud-container/ietf-mud:mud/from-device-policy/access-lists/access-list[1]/name",
+      "mud-container/ietf-mud:mud/last-update",
+      "mud-container/ietf-mud:mud/systeminfo",
+      "mud-container/ietf-mud:mud/cache-validity",
+      "mud-container/ietf-mud:mud/is-supported",
+      "mud-container/ietf-mud:mud/mud-url",
+      "mud-container/ietf-mud:mud/mud-version",
+      "mud-container/ietf-access-control-list:acls",
+      "mud-container/ietf-access-control-list:acls/acl",
+      "mud-container/ietf-access-control-list:acls/acl[1]",
+      "mud-container/ietf-access-control-list:acls/acl[1]/aces",
+      "mud-container/ietf-access-control-list:acls/acl[1]/aces/ace",
+      "mud-container/ietf-access-control-list:acls/acl[1]/aces/ace[1]",
+      "mud-container/ietf-access-control-list:acls/acl[1]/aces/ace[1]/matches",
+      "mud-container/ietf-access-control-list:acls/acl[1]/aces/ace[1]/name",
+      "mud-container/ietf-access-control-list:acls/acl[1]/aces/ace[1]/actions",
+      "mud-container/ietf-access-control-list:acls/acl[1]/aces/ace[1]/actions/forwarding",
+      "mud-container/ietf-access-control-list:acls/acl[1]/type",
+      "mud-container/ietf-access-control-list:acls/acl[1]/name",
+      "mud-container/ietf-access-control-list:acls/acl[2]",
+      "mud-container/ietf-access-control-list:acls/acl[2]/aces",
+      "mud-container/ietf-access-control-list:acls/acl[2]/aces/ace",
+      "mud-container/ietf-access-control-list:acls/acl[2]/aces/ace[1]",
+      "mud-container/ietf-access-control-list:acls/acl[2]/aces/ace[1]/matches",
+      "mud-container/ietf-access-control-list:acls/acl[2]/aces/ace[1]/name",
+      "mud-container/ietf-access-control-list:acls/acl[2]/aces/ace[1]/actions",
+      "mud-container/ietf-access-control-list:acls/acl[2]/aces/ace[1]/actions/forwarding",
+      "mud-container/ietf-access-control-list:acls/acl[2]/type",
+      "mud-container/ietf-access-control-list:acls/acl[2]/name"
+    }
+
+    lu.assertEquals(paths, expected)
+  end
+
+  function TestMudFileReader:footestGetPath()
+    self.a:parseFile("../examples/example_from_draft.json")
+    --for i,n in pairs(self.a.mud_container:getAll()) do
+    --  print(n:getPath())
+    --end
+    local n = yang.findSingleNode(self.a.mud_container, "ietf-access-control-list:acls/acl[1]/aces/ace[1]")
+    local cur_n = n
+    while cur_n:getParent() ~= nil do
+      if n:hasValue() then
+        print(cur_n:getName() .. " (" .. cur_n:getType() .. ") HAS VALUE")
+        print(json.encode(cur_n:toData()))
+      else
+        print(cur_n:getName() .. " (" .. cur_n:getType() .. ") HAS NO VALUE")
+      end
+
+      if true then
+      if cur_n:getParent():isa(yang.basic_types.list) then
+        print("[X] parent (" .. cur_n:getParent():getName() .. ") is list (" .. cur_n:getParent():getType() .. ")")
+        print("element table: ")
+        print(cur_n)
+        print(json.encode(cur_n:toData()))
+        print("list tables:")
+        for i,n in pairs(cur_n:getParent().value) do
+          print(n)
+          print(json.encode(n:toData()))
+        end
+        print("our index is " .. yang.util.get_index_of(cur_n:getParent().value, cur_n))
+      end
+      end
+
+      cur_n = cur_n:getParent()
+    end
+    --print(json.encode(n:toData()))
+    --print(n:getPath())
   end
 -- class testMud
 

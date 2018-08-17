@@ -89,6 +89,9 @@ local YangNode_mt = { __index = YangNode }
   end
 
   function YangNode:setParent(node)
+    print("[XX] setting parent to ")
+    print(node)
+    print(debug.traceback())
     self.parent = node
   end
 
@@ -99,9 +102,16 @@ local YangNode_mt = { __index = YangNode }
   function YangNode:getPath(data_incomplete)
     -- TODO: make a specific one for list, it needs the index
     if self:getParent() ~= nil and self:getParent():getType() == 'list' then
-      print("[XX] getPath in list " .. self:getName())
-      print("[XX] parent name: " .. self:getParent():getName())
-      print(self:getParent():getValue())
+      print("[XX] getPath for " .. self:getName() .. " in list " .. self:getParent():getName())
+      if (self:hasValue()) then
+        print("ELEMENT HAS VALUE")
+      else
+        print("ELEMENT DOES NOT HAVE VALUE")
+      end
+      print("ELEMENT TO FIND IS " .. self:getType())
+      print(json.encode(self:toData()))
+      print("ELEMENT IN LIST:")
+      print(json.encode(self:getParent():toData()))
       result = self:getParent():getPath(data_incomplete) .. "[" .. util.get_index_of(self:getParent():getValue(), self, data_incomplete) .. "]"
       print("[XX] getPath in list found result")
       return result
@@ -355,6 +365,9 @@ container_mt = { __index = container }
     for node_name, node in pairs(self.yang_nodes) do
       if json_data[node_name] ~= nil then
         node:fromData(json_data[node_name])
+        -- We need to set the parent again, since we may be dealing
+        -- with an instanced list as our parent
+        node:setParent(self)
         data_copy[node_name] = nil
       elseif node:isMandatory() then
         --error('mandatory node ' .. node_name .. ' not found in: ' .. json.encode(json_data[node_name]))
@@ -445,7 +458,9 @@ container_mt = { __index = container }
     local result = {}
     table.insert(result, self)
     for i,n in pairs(self.yang_nodes) do
-      util.table_extend(result, n:getAll())
+      if n:hasValue() then
+        util.table_extend(result, n:getAll())
+      end
     end
     return result
   end
@@ -524,6 +539,7 @@ list_mt = { __index = list }
     for i,data_el in pairs(data) do
       local new_el = self:create_list_element()
       new_el:fromData(data_el)
+      new_el:setParent(self)
     end
   end
 

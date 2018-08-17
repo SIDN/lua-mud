@@ -45,11 +45,6 @@ end
 -- TODO: /foo/bar[*]/baz
 -- TODO: /foo/*/baz
 
--- Returns the first node that matches the given path, if any
--- Returns nil if not found
-function _M.findSingleNode(base_node, path)
-end
-
 local function getRootNode(base_node)
   local cur_node = base_node
   while cur_node:getParent() ~= nil do
@@ -144,6 +139,14 @@ function _M.findNodes(base_node, path)
 
   print("[XX] returning " .. table.getn(result_nodes) .. " nodes")
   return result_nodes
+end
+
+
+-- Returns the first node that matches the given path, if any
+-- Returns nil if not found
+function _M.findSingleNode(base_node, path)
+  local nodes = _M.findNodes(base_node, path)
+  if table.getn(nodes) > 0 then return nodes[1] else return nil end
 end
 
 function _M.nodeListToData(node_list)
