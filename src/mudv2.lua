@@ -25,7 +25,8 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     local aces = yang.basic_types.container:create('aces')
     local ace_list = yang.basic_types.list:create('ace')
     ace_list:add_list_node(yang.basic_types.string:create('name'))
-    local matches = yang.basic_types.choice:create('matches')
+    --local matches = yang.basic_types.choice:create('matches')
+    local matches = yang.basic_types.container:create('matches')
 
     local matches_eth = yang.basic_types.container:create('eth')
     matches_eth:add_node(yang.basic_types.mac_address:create('destination-mac-address'))
@@ -45,6 +46,18 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches_ipv4:add_node(yang.basic_types.uint16:create('offset', false))
     matches_ipv4:add_node(yang.basic_types.uint16:create('identification', false))
     -- TODO: -network
+    local ipv4_destination_network_choice = yang.basic_types.choice:create('destination-network', false, true)
+    ipv4_destination_network_choice:set_named(false)
+    local ipv4prefix = yang.complex_types.inet_ipv4_prefix:create('destination-ipv4-network')
+    ipv4_destination_network_choice:add_case('destination-ipv4-network', ipv4prefix)
+    matches_ipv4:add_node(ipv4_destination_network_choice, false)
+    local ipv4_source_network_choice = yang.basic_types.choice:create('source-network', false, true)
+    ipv4_source_network_choice:set_named(false)
+    -- this should be type ipv4-prefix
+    ipv4_source_network_choice:add_case('source-ipv4-network', yang.complex_types.inet_ipv4_prefix:create('source-ipv4-network'))
+    matches_ipv4:add_node(ipv4_source_network_choice, false)
+
+    -- mud augmentation
     matches_ipv4:add_node(yang.basic_types.string:create('ietf-acldns:dst-dnsname', false))
     matches_ipv4:add_node(yang.basic_types.string:create('ietf-acldns:src-dnsname', false))
 
@@ -57,6 +70,15 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches_ipv6:add_node(yang.basic_types.string:create('ietf-acldns:dst-dnsname', false))
     matches_ipv6:add_node(yang.basic_types.string:create('ietf-acldns:src-dnsname', false))
     -- TODO: -network
+    local ipv6_destination_network_choice = yang.basic_types.choice:create('destination-network', false, true)
+    ipv6_destination_network_choice:set_named(false)
+    ipv6_destination_network_choice:add_case('destination-ipv6-network', yang.complex_types.inet_ipv6_prefix:create('destination-ipv6-network', false))
+    matches_ipv6:add_node(ipv6_destination_network_choice)
+    local ipv6_source_network_choice = yang.basic_types.choice:create('source-network', false, true)
+    ipv6_source_network_choice:set_named(false)
+    -- this should be type ipv6-prefix
+    ipv6_source_network_choice:add_case('source-ipv6-network', yang.complex_types.inet_ipv6_prefix:create('source-ipv6-network'))
+    matches_ipv6:add_node(ipv6_source_network_choice, false)
     -- TODO: flow-label
 
     local matches_tcp = yang.basic_types.container:create('tcp')
@@ -65,22 +87,39 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches_tcp:add_node(yang.basic_types.uint8:create('offset', false))
     matches_tcp:add_node(yang.basic_types.uint8:create('reserved', false))
 
-    local source_port_choice = yang.basic_types.choice:create('source-port', false, true)
-    -- todo: full implementation of pf:port-range-or-operator
-    local choice_operator = yang.basic_types.container:create('choice-operator')
-    choice_operator:add_node(yang.basic_types.string:create('operator'))
-    choice_operator:add_node(yang.basic_types.uint16:create('port'))
-    source_port_choice:add_choice('operator', choice_operator)
-    matches_tcp:add_node(source_port_choice)
+    -- new choice realization
+    -- todo: is this mandatory?
+    local source_port = yang.basic_types.container:create('source-port', false)
+    local source_port_choice = yang.basic_types.choice:create('source-port', false)
 
-    local destination_port_choice = yang.basic_types.choice:create('destination-port', false, true)
-    -- todo: full implementation of pf:port-range-or-operator
-    local choice_operator = yang.basic_types.container:create('choice-operator')
-    choice_operator:add_node(yang.basic_types.string:create('operator'))
-    choice_operator:add_node(yang.basic_types.uint16:create('port'))
-    --choice_operator:makePresenceContainer()
-    destination_port_choice:add_choice('operator2', choice_operator)
-    matches_tcp:add_node(destination_port_choice)
+    local source_port_range = yang.basic_types.container:create('port-range', false)
+    source_port_range:add_node(yang.basic_types.uint16:create('lower-port'))
+    source_port_range:add_node(yang.basic_types.uint16:create('upper-port'))
+    source_port_choice:add_case('range', source_port_range)
+
+    local source_port_operator = yang.basic_types.container:create('port-operator', false)
+    source_port_operator:add_node(yang.basic_types.string:create('operator', false))
+    source_port_operator:add_node(yang.basic_types.uint16:create('port'))
+    source_port_choice:add_case('operator', source_port_operator)
+
+    source_port:add_node(source_port_choice)
+    matches_tcp:add_node(source_port)
+
+    local destination_port = yang.basic_types.container:create('destination-port', false)
+    local destination_port_choice = yang.basic_types.choice:create('destination-port2', false)
+
+    local destination_port_range = yang.basic_types.container:create('port-range', false)
+    destination_port_range:add_node(yang.basic_types.uint16:create('lower-port'))
+    destination_port_range:add_node(yang.basic_types.uint16:create('upper-port'))
+    destination_port_choice:add_case('range', destination_port_range)
+
+    local destination_port_operator = yang.basic_types.container:create('port-operator', false)
+    destination_port_operator:add_node(yang.basic_types.string:create('operator', false))
+    destination_port_operator:add_node(yang.basic_types.uint16:create('port'))
+    destination_port_choice:add_case('operator', destination_port_operator)
+
+    destination_port:add_node(destination_port_choice)
+    matches_tcp:add_node(destination_port)
 
     -- this is an augmentation from draft-mud
     -- TODO: type 'direction' (enum?)
@@ -91,14 +130,26 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches_udp:add_node(yang.util.deepcopy(source_port_choice))
     matches_udp:add_node(yang.util.deepcopy(destination_port_choice))
 
-    matches:set_named(true)
-    matches:add_choice('eth', matches_eth)
-    matches:add_choice('ipv4', matches_ipv4)
-    matches:add_choice('tcp', matches_tcp)
-    matches:add_choice('udp', matches_tcp)
-    matches:add_choice('ipv6', matches_ipv6)
+    local matches_l1_choice = yang.basic_types.choice:create('l1', false)
+    local matches_l2_choice = yang.basic_types.choice:create('l2', false)
+    local matches_l3_choice = yang.basic_types.choice:create('l3', false)
+    local matches_l4_choice = yang.basic_types.choice:create('l4', false)
+    local matches_l5_choice = yang.basic_types.choice:create('l5', false)
+
+    matches_l1_choice:add_case('eth', matches_eth)
+    matches_l3_choice:add_case('tcp', matches_tcp)
+    matches_l4_choice:add_case('udp', matches_udp)
+    matches_l5_choice:add_case('ipv6', matches_ipv6)
+    matches_l2_choice:add_case('ipv4', matches_ipv4)
+
+    matches:add_node(matches_l1_choice)
+    matches:add_node(matches_l3_choice)
+    matches:add_node(matches_l4_choice)
+    matches:add_node(matches_l5_choice)
+    matches:add_node(matches_l2_choice)
+    --print("[XX] TODO: l2 now has " .. table.getn(matches_l2_choice.cases) .. " cases")
+
     ace_list:add_list_node(matches)
-    --print("[XX] ACES TYPE: " .. aces:getType())
     aces:add_node(ace_list)
 
     local actions = yang.basic_types.container:create('actions')
@@ -120,14 +171,14 @@ ietf_mud_type_mt = { __index = ietf_mud_type }
   function ietf_mud_type:create(nodeName, mandatory)
     local new_inst = yang.basic_types.container:create(nodeName, mandatory)
     -- additional step: add the type name
-    new_inst.typeName = "mud"
+    new_inst.typeName = "ietf-mud:mud"
     setmetatable(new_inst, ietf_mud_type_mt)
     new_inst:add_definition()
     return new_inst
   end
 
   function ietf_mud_type:add_definition()
-    local c = yang.basic_types.container:create('mud')
+    local c = yang.basic_types.container:create('ietf-mud:mud')
     c:add_node(yang.basic_types.uint8:create('mud-version', 'mud-version'))
     c:add_node(yang.basic_types.inet_uri:create('mud-url', 'mud-url', true))
     c:add_node(yang.basic_types.date_and_time:create('last-update'))
@@ -160,26 +211,15 @@ ietf_mud_type_mt = { __index = ietf_mud_type }
     -- this seems to be a difference between the example and the definition
     to_device_policy:add_node(access_lists)
     c:add_node(to_device_policy)
+    --print("[XX] NOT LOOKING BUT TO_DEVICE_POLICY HAS PARENT " .. tostring(self))
 
     -- it's a presence container, so we *replace* the base node list instead of adding to it
     self.yang_nodes = c.yang_nodes
+    for i,n in pairs(self.yang_nodes) do
+      n:setParent(self)
+    end
   end
 -- class ietf_mud_type
-
---local function tdump (tbl, indent)
---  if not indent then indent = 0 end
---  for k, v in pairs(tbl) do
---    formatting = string.rep("  ", indent) .. k .. ": "
---    if type(v) == "table" then
---      print(formatting)
---      tdump(v, indent+1)
---    elseif type(v) == 'boolean' then
---      print(formatting .. tostring(v))
---    else
---      print(formatting .. v)
---    end
---  end
---end
 
 local mud_container = yang.util.subClass("mud_container", yang.basic_types.container)
 mud_container_mt = { __index = mud_container }
@@ -193,7 +233,7 @@ mud_container_mt = { __index = mud_container }
 
   function mud_container:add_definition()
     self:add_node(ietf_mud_type:create('ietf-mud:mud', true))
-     self:add_node(ietf_access_control_list:create('ietf-access-control-list:acls', true))
+    self:add_node(ietf_access_control_list:create('ietf-access-control-list:acls', true))
   end
 -- mud_container
 
@@ -204,71 +244,83 @@ function aceToRules(ace_node)
         local v6_or_v4 = nil
         local direction = nil
         local rulematches = ""
-        for i,match in pairs(ace:getNode('matches'):getChoices()) do
-            if match:getName() == 'ipv4' then
-                v6_or_v4 = "ip "
-                for j,match_node in pairs(match.yang_nodes) do
-                    if match_node:hasValue() then
-                        if match_node:getName() == 'ietf-acldns:dst-dnsname' then
-                            rulematches = rulematches .. "daddr " .. match_node:toData() .. " "
-                        elseif match_node:getName() == 'ietf-acldns:src-dnsname' then
-                            rulematches = rulematches .. "saddr " .. match_node:toData() .. " "
-                        elseif match_node:getName() == 'protocol' then
-                            -- this is done by virtue of it being an ipv6 option
-                        elseif match_node:getName() == 'destination-port' then
-                            -- TODO: check operator and/or range
-                            rulematches = rulematches .. "dport " .. match_node:getChoice():getNode('port'):getValue() .. " "
-                        else
-                            error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
-                        end
-                    end
-                end
-            elseif match:getName() == 'ipv6' then
-                v6_or_v4 = "ip6 "
-                for j,match_node in pairs(match.yang_nodes) do
-                    if match_node:hasValue() then
-                        if match_node:getName() == 'ietf-acldns:dst-dnsname' then
-                            rulematches = rulematches .. "daddr " .. match_node:toData() .. " "
-                        elseif match_node:getName() == 'ietf-acldns:src-dnsname' then
-                            rulematches = rulematches .. "saddr " .. match_node:toData() .. " "
-                        elseif match_node:getName() == 'protocol' then
-                            -- this is done by virtue of it being an ipv6 option
-                        elseif match_node:getName() == 'destination-port' then
-                            -- TODO: check operator and/or range
-                            rulematches = rulematches .. "dport " .. match_node:getChoice():getNode('port'):getValue() .. " "
-                        else
-                            error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
-                        end
-                    end
-                end
-                -- TODO
-                -- TODO
-            elseif match:getName() == 'tcp' then
-                rulematches = rulematches .. "tcp "
-                for j,match_node in pairs(match.yang_nodes) do
-                    if match_node:hasValue() then
-                        if match_node:getName() == 'ietf-mud:direction-initiated' then
-                            -- TODO: does this have any influence on the actual rule?
-                            if match_node:toData() == 'from-device' then
-                                direction = "filter output "
-                            elseif match_node:toData() == 'to-device' then
-                                direction = "filter input "
+        for i,match_choice in pairs(ace:getNode('matches').yang_nodes) do
+            local match = match_choice:getActiveCase()
+            if match ~= nil then
+                if match:getName() == 'ipv4' then
+                    v6_or_v4 = "ip "
+                    for j,match_node in pairs(match.yang_nodes) do
+                        if match_node:hasValue() then
+                            
+                            if match_node:getName() == 'ietf-acldns:dst-dnsname' then
+                                rulematches = rulematches .. "daddr " .. match_node:toData() .. " "
+                            elseif match_node:getName() == 'ietf-acldns:src-dnsname' then
+                                rulematches = rulematches .. "saddr " .. match_node:toData() .. " "
+                            elseif match_node:getName() == 'protocol' then
+                                -- this is done by virtue of it being an ipv6 option
+                            elseif match_node:getName() == 'destination-port' then
+                                -- TODO: check operator and/or range
+                                rulematches = rulematches .. "dport " .. match_node:getActiveCase():getNode('port'):getValue() .. " "
                             else
-                                error('unknown direction-initiated: ' .. match_node:toData())
+                                error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
                             end
-                        elseif match_node:getName() == 'source-port' then
-                            -- TODO: check operator and/or range
-                            rulematches = rulematches .. "sport " .. match_node:getChoice():getNode('port'):getValue() .. " "
-                        elseif match_node:getName() == 'destination-port' then
-                            -- TODO: check operator and/or range
-                            rulematches = rulematches .. "dport " .. match_node:getChoice():getNode('port'):getValue() .. " "
-                        else
-                            error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
                         end
                     end
+                elseif match:getName() == 'ipv6' then
+                    v6_or_v4 = "ip6 "
+                    for j,match_node in pairs(match.yang_nodes) do
+                        if match_node:hasValue() then
+                            print("[XX] MATCHNODE: " .. json.encode(match_node:toData()))
+                            if match_node:getName() == 'ietf-acldns:dst-dnsname' then
+                                rulematches = rulematches .. "daddr " .. match_node:toData() .. " "
+                            elseif match_node:getName() == 'ietf-acldns:src-dnsname' then
+                                rulematches = rulematches .. "saddr " .. match_node:toData() .. " "
+                            elseif match_node:getName() == 'protocol' then
+                                -- this is done by virtue of it being an ipv6 option
+                            elseif match_node:getName() == 'destination-port' then
+                                -- TODO: check operator and/or range
+                                rulematches = rulematches .. "dport " .. match_node:getActiveCase():getNode('port'):getValue() .. " "
+                            else
+                                error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
+                            end
+                        end
+                    end
+                    -- TODO
+                    -- TODO
+                elseif match:getName() == 'tcp' then
+                    rulematches = rulematches .. "tcp "
+                    for j,match_node in pairs(match.yang_nodes) do
+                        if match_node:hasValue() then
+                            if match_node:getName() == 'ietf-mud:direction-initiated' then
+                                -- TODO: does this have any influence on the actual rule?
+                                if match_node:toData() == 'from-device' then
+                                    direction = "filter output "
+                                elseif match_node:toData() == 'to-device' then
+                                    direction = "filter input "
+                                else
+                                    error('unknown direction-initiated: ' .. match_node:toData())
+                                end
+                            elseif match_node:getName() == 'source-port' then
+                                -- TODO: check operator and/or range
+                                rulematches = rulematches .. "sport " .. match_node:getChild():getActiveCase():getNode('port'):getValue() .. " "
+                            elseif match_node:getName() == 'destination-port' then
+                                -- TODO: check operator and/or range
+                                print("[XX] MATCH NODE: " .. match_node:getName() .. "(" .. match_node:getType() .. ")")
+                                print("[XX] CHILD NODE: " .. match_node:getChild():getName() .. "(" .. match_node:getChild():getType() .. ")")
+                                print("[XX] GHILD NODE: " .. match_node:getChild():getActiveCase():getName() .. "(" .. match_node:getChild():getActiveCase():getType() .. ")")
+
+                                local port_case = match_node:getChild():getActiveCase()
+                                -- TODO: chech which case it is, for now we assume operator->eq
+                                
+                                rulematches = rulematches .. "dport " .. port_case:getNode("port"):getValue() .. " "
+                            else
+                                error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
+                            end
+                        end
+                    end
+                else
+                    error('unknown match type: ' .. match:getName())
                 end
-            else
-                error('unknown match type: ' .. match:getName())
             end
         end
 
@@ -285,6 +337,115 @@ function aceToRules(ace_node)
     end
     return rules
 end
+
+function getAddresses(name, family)
+  local result = {}
+  local hostaddrs = socket.dns.getaddrinfo(name)
+  if hostaddrs then
+    for i,a in pairs(hostaddrs) do
+      if family == nil or a.family == family then
+        table.insert(result, a.addr)
+      end
+    end
+  end
+  return result
+end
+
+function getIPv6Addresses(name)
+  return getAddresses(name, 'inet6')
+end
+
+function getIPv4Addresses(name)
+  return getAddresses(name, 'inet')
+end
+
+-- returns true if a node was (or should have been) replaced; this
+-- is so if the data contains a value for the dnsname_str in the
+-- family_str, whether or not it actually resolves to an ip address
+function replaceDNSNameNode(new_nodes, node, family_str, dnsname_str, network_source_or_dest, network_source_or_dest_v)
+  local nd = node:toData()
+  if nd[family_str] and nd[family_str][dnsname_str] then
+    local dnsname = nd[family_str][dnsname_str]
+    local addrs = getIPv6Addresses(dnsname)
+    if table.getn(addrs) == 0 then
+      print("WARNING: " .. dnsname .. " does not resolve to any " .. family_str .. " addresses")
+    end
+    for i,a in pairs(addrs) do
+      local nn = yang.util.deepcopy(node)
+      nd[family_str][dnsname_str] = nil
+      -- add new rule here ((TODO))
+      --nd[family_str][network_source_or_dest] = {}
+      if family_str == 'ipv6' then
+        --nd[family_str][network_source_or_dest][network_source_or_dest_v] = a .. "/128"
+        nd[family_str][network_source_or_dest_v] = a .. "/128"
+      else
+        nd[family_str][network_source_or_dest_v] = a .. "/32"
+      end
+      --nn:fromData_noerror(nd)
+      nn:clearData()
+      nn:fromData_noerror(nd)
+      --nn:fromData_noerror(nd)
+      table.insert(new_nodes, nn)
+    end
+    return true
+  end
+  return false
+end
+
+function aceToRulesIPTables(ace_node)
+  local nodes = ace_node:getAll()
+  -- small trick, use getParent() so we can have a path request on the entire list
+  local nodes = yang.findNodes(ace_node:getParent(), "ace[*]/matches")
+  local paths = {}
+
+  --
+  -- pre-processing
+  --
+
+  -- IPTables does not support hostname-based rules, so in the case of
+  -- a dnsname rule, we look up the address(es), and duplicate the rule
+  -- for each (v4 or v6 depending on match type)
+  local new_nodes = {}
+  for i,n in pairs(nodes) do
+    local nd = n:toData()
+    table.insert(paths, n:getPath())
+    print(json.encode(n:toData()))
+    -- need to make it into destination-ipv4-network, destination-ipv6-network,
+    -- source-ipv4-network or source-ipv6-network, depending on what it was
+    -- (ipv6/destination-dnsname, etc.)
+    local node_replaced = false
+    if replaceDNSNameNode(new_nodes, n, "ipv6", "ietf-acldns:src-dnsname", 'source-network', 'source-ipv6-network') then
+      node_replaced = true
+    end
+    if replaceDNSNameNode(new_nodes, n, "ipv6", "ietf-acldns:dst-dnsname", 'destination-network', 'destination-ipv6-network') then
+      node_replaced = true
+    end
+    if replaceDNSNameNode(new_nodes, n, "ipv4", "ietf-acldns:src-dnsname", 'source-network', 'source-ipv4-network') then
+      node_replaced = true
+    end
+    if replaceDNSNameNode(new_nodes, n, "ipv4", "ietf-acldns:dst-dnsname", 'destination-network', 'destination-ipv4-network') then
+      node_replaced = true
+    end
+
+    if not node_replaced then
+      table.insert(new_nodes, n)
+    end
+  end
+
+  --
+  -- conversion to actual rules
+  --
+  --print("[XX] NEW NODES")
+  for i,n in pairs(new_nodes) do
+    table.insert(paths, n:getPath())
+    --print(json.encode(n:toData()))
+  end
+  --print("[XX] END OF NEW NODES")
+
+  return paths
+end
+
+
 
 local mud = {}
 mud_mt = { __index = mud }
@@ -303,7 +464,7 @@ mud_mt = { __index = mud }
     if json_data == nil then
       error(err)
     end
-    self.mud_container:fromData(yang.util.deepcopy(json_data))
+    self.mud_container:fromData_noerror(yang.util.deepcopy(json_data))
     if json_data['ietf-mud:mud'] == nil then
       if file_name == nil then file_name = "<unknown>" end
       error("Top-level node 'ietf-mud:mud' not found in " .. file_name)
@@ -354,6 +515,36 @@ mud_mt = { __index = mud }
     end
     return rules
   end
+
+  function mud:makeRulesIPTables()
+    -- first do checks, etc.
+    -- TODO ;)
+
+    local rules = {}
+    -- find out which incoming and which outgoiing rules we have
+    local from_device_acl_nodelist = self.mud_container:getNode("ietf-mud:mud/from-device-policy/access-lists/access-list")
+    -- maybe add something like findNodes("/foo/bar[*]/baz/*/name")?
+    for i,node in pairs(from_device_acl_nodelist:getValue()) do
+      local acl_name = node:getNode('name'):toData()
+      -- find with some functionality is definitely needed in types
+      -- but xpath is too complex. need to find right level.
+      local found = false
+      local acl = yang.findNodeWithProperty(self.mud_container, "acl", "name", acl_name)
+      yang.util.table_extend(rules, aceToRulesIPTables(acl:getNode('aces'):getNode('ace')))
+    end
+
+    local to_device_acl_nodelist = self.mud_container:getNode("ietf-mud:mud/to-device-policy/access-lists/access-list")
+    -- maybe add something like findNodes("/foo/bar[*]/baz/*/name")?
+    for i,node in pairs(to_device_acl_nodelist:getValue()) do
+      local acl_name = node:getNode('name'):toData()
+      -- find with some functionality is definitely needed in types
+      -- but xpath is too complex. need to find right level.
+      local found = false
+      local acl = yang.findNodeWithProperty(self.mud_container, "acl", "name", acl_name)
+      yang.util.table_extend(rules, aceToRulesIPTables(acl:getNode('aces'):getNode('ace')))
+    end
+    return rules
+  end
 _M.mud = mud
 
 --
@@ -379,6 +570,5 @@ _M.mud = mud
 --
 -- # nft add rule inet filter input ct state related,established accept
 --
-
 
 return _M

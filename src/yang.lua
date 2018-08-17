@@ -1,4 +1,3 @@
-
 local json = require("json")
 
 local _M = {}
@@ -44,11 +43,7 @@ end
 -- Example: /foo/bar[2]/baz
 -- TODO: /foo/bar[*]/baz
 -- TODO: /foo/*/baz
-
--- Returns the first node that matches the given path, if any
--- Returns nil if not found
-function _M.findSingleNode(base_node, path)
-end
+--
 
 local function getRootNode(base_node)
   local cur_node = base_node
@@ -64,18 +59,17 @@ _M.getRootNode = getRootNode
 function _M.findNodes(base_node, path)
   local result_nodes = {}
   local cur_node = base_node
-  --print("[XX] PATH ORIG: " .. path)
-  --print("[XX] BASE NODE PATH: " .. base_node:getPath())
   -- First of all, check if the path starts at the root ('/') or is relative
   -- to the given node
   if util.string_starts_with(path, "/") then
-    cur_node = getRootNode(base_node)
+    cur_node = cur_node:getRootNode()
     path = path:sub(2)
   end
-  --print("[XX] PATH NOW: " .. path)
-  --print("[XX] CUR NODE PATH:  " .. cur_node:getPath())
 
-  --
+  --print("[XX] [FIND]")
+  --print("[XX] [FIND] find " .. path)
+  --print("[XX] [FIND] in node " .. cur_node:getName())
+  --print("[XX] [FIND] in data " .. json.encode(cur_node:toData()))
 
   -- get and remove the first section of the path
   local first, rest = util.str_split_one(path, "/")
@@ -95,38 +89,32 @@ function _M.findNodes(base_node, path)
     name_to_find = list_name
   end
 
-  if list_index ~= nil then
-    print("[XX] looking for '" .. name_to_find .. "' (list index " .. list_index ..") in " .. cur_node:getName())
-  else
-    print("[XX] looking for '" .. name_to_find .. "' (not a list) in " .. cur_node:getName())
-  end
-
-  if cur_node.yang_nodes ~= nil and cur_node.yang_nodes[name_to_find] ~= nil then
+  if cur_node.yang_nodes ~= nil and (name_to_find == "*" or cur_node.yang_nodes[name_to_find]) ~= nil then
     local next_nodes = {}
-    local next_node = cur_node.yang_nodes[name_to_find]
-    if list_index ~= nil then
-      if next_node:isa(basic_types.list) then
-        print("[XX] IT IS INDEED A LIST")
-        if list_index < 0 then
-          print("[XX] TAKE THEM ALL")
-          util.table_extend(next_nodes, next_node.value)
-        elseif next_node.value[list_index] ~= nil then
-          table.insert(next_nodes, next_node.value[list_index])
-          --next_node = next_node.value[list_index]
+    if name_to_find == "*" then
+      -- * also means every list item if the next_node is a list
+      util.table_extend(next_nodes, cur_node.yang_nodes)
+    else
+      local next_node = cur_node.yang_nodes[name_to_find]
+      if list_index ~= nil then
+        if next_node:isa(basic_types.list) then
+          if list_index < 0 then
+            util.table_extend(next_nodes, next_node.value)
+          elseif next_node.value[list_index] ~= nil then
+            table.insert(next_nodes, next_node.value[list_index])
+            --next_node = next_node.value[list_index]
+          else
+            error("list index out of bounds")
+          end
         else
-          error("list index out of bounds")
+          error("list index specified in path on non-list element " .. next_node:getName() .. " (" .. next_node:getType() .. ")")
         end
       else
-        error("list index specified in path on non-list element " .. next_node:getName() .. " (" .. next_node:getType() .. ")")
-        print("[XX] BUT NO LIST IS")
+        table.insert(next_nodes, next_node)
       end
-    else
-      print("[XX] ok, not a list")
-      table.insert(next_nodes, next_node)
     end
     --if self.yang_nodes[name_to_find] == nil then error("node " .. name_to_find .. " not found in " .. self:getType()) end
     if rest == nil then
-      print("[XX] no rest, we found something. i think")
       util.table_extend(result_nodes, next_nodes)
     else
       for i,nn in pairs(next_nodes) do
@@ -135,9 +123,23 @@ function _M.findNodes(base_node, path)
     end
   end
 
-  print("[XX] returning " .. table.getn(result_nodes) .. " nodes")
   return result_nodes
 end
 
+
+-- Returns the first node that matches the given path, if any
+-- Returns nil if not found
+function _M.findSingleNode(base_node, path)
+  local nodes = _M.findNodes(base_node, path)
+  if table.getn(nodes) > 0 then return nodes[1] else return nil end
+end
+
+function _M.nodeListToData(node_list)
+  local result = {}
+  for i,n in pairs(node_list) do
+    table.insert(result, n:toData())
+  end
+  return result
+end
 
 return _M

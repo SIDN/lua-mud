@@ -7,4 +7,10 @@ require 'test_mud_rulegen'
 require 'test_mud_find'
 
 local lu = require('luaunit')
-lu.run('--pattern', 'testFindNodes')
+--lu.run('--pattern', 'testGetPath')
+--lu.run('--pattern', 'testIPTables')
+--lu.run('--pattern', 'TestIPv4Prefix')
+--lu.run('--pattern', 'testDraftExample')
+--lu.run('--pattern', 'testGetPath3')
+--lu.run('--pattern', 'testFindNodesFromSubNode')
+lu.run()

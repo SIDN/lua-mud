@@ -57,6 +57,11 @@ TestUInt8 = {} --class
       lu.assertEquals(self.b:getValue(), 200)
 
       lu.assertEquals(self.a:getValue(), 200)
+
+      self.a:clearData()
+      lu.assertEquals(self.a:getValue(), nil)
+      self.b:clearData()
+      lu.assertEquals(self.b:getValue(), nil)
     end
 
     function TestUInt8:testBadValues()
@@ -99,6 +104,11 @@ TestUint16 = {} --class
 
       self.b:setValue(300)
       lu.assertEquals(self.b:getValue(), 300)
+
+      self.a:clearData()
+      lu.assertEquals(self.a:getValue(), nil)
+      self.b:clearData()
+      lu.assertEquals(self.b:getValue(), nil)
     end
 
     function TestUint16:testBadValues()
@@ -109,6 +119,8 @@ TestUint16 = {} --class
       lu.assertError(self.a.setValue, self.a, 70000)
       lu.assertError(self.a.setValue, self.a, -1)
       lu.assertEquals(self.a:getValue(), 1)
+      self.a:clearData()
+      lu.assertEquals(self.a:getValue(), nil)
     end
 -- class TestUint16
 
@@ -142,6 +154,10 @@ TestUint32 = {} --class
       self.b:setValue(70000)
       lu.assertEquals(self.b:getValue(), 70000)
 
+      self.a:clearData()
+      lu.assertEquals(self.a:getValue(), nil)
+      self.b:clearData()
+      lu.assertEquals(self.b:getValue(), nil)
     end
 
     function TestUint32:testBadValues()
@@ -183,6 +199,9 @@ TestBoolean = {}
 
     lu.assertError(self.b.setValue, self, "asdf")
     lu.assertEquals(self.b:getValue(), true)
+
+    self.b:clearData()
+    lu.assertEquals(self.b:getValue(), nil)
   end
 -- class TestBoolean
 
@@ -233,7 +252,7 @@ TestList = {}
     lu.assertEquals(self.a:hasValue(), false)
 
     local data = {[1]={number=123, string='example'}}
-    self.a:fromData(data)
+    self.a:fromData_noerror(data)
     lu.assertEquals(self.a:hasValue(), true)
     lu.assertEquals(self.a:toData(), data)
   end
@@ -338,7 +357,194 @@ TestACL = {}
     local data = "aaaa"
     lu.assertError(self.a.setValue, self.a, data)
   end
--- class TestMacAddress
+-- class TestACL
+
+TestIPv4Prefix = {}
+  function TestIPv4Prefix:setup()
+    self.a = yang.complex_types.inet_ipv4_prefix:create('prefix')
+  end
+
+  function TestIPv4Prefix:testGoodAddresses()
+    self.a:fromData_noerror("192.0.2.0/32")
+    self.a:fromData_noerror("192.0.2.0/24")
+    self.a:fromData_noerror("192.0.2.0/8")
+    self.a:fromData_noerror("1.1.1.1/8")
+    self.a:fromData_noerror("255.255.255.255/0")
+  end
+
+  function TestIPv4Prefix:testBadAddresses()
+    lu.assertError(self.a.fromData, self.a, "256.0.2.0/32")
+    lu.assertError(self.a.fromData, self.a, "192.0.2.0/33")
+    lu.assertError(self.a.fromData, self.a, "192.0.2.0/-1")
+    lu.assertError(self.a.fromData, self.a, "-1.0.2.0/32")
+    lu.assertError(self.a.fromData, self.a, "a1.2.3.4/24")
+    lu.assertError(self.a.fromData, self.a, "1.2.3.4/a")
+  end
+-- class TestIPv4Prefix
+
+TestIPv6Prefix = {}
+  function TestIPv6Prefix:setup()
+    self.a = yang.complex_types.inet_ipv6_prefix:create('prefix')
+  end
+
+  function TestIPv6Prefix:testGoodAddresses()
+    self.a:fromData_noerror("2001:DB8::/32")
+    self.a:fromData_noerror("2001:DB8::1/128")
+    self.a:fromData_noerror("2001:DB8:aa11:11aa:12:ad:ff:1/128")
+    self.a:fromData_noerror("::/128")
+  end
+
+  function TestIPv6Prefix:testBadAddresses()
+    lu.assertError(self.a.fromData, self.a, "")
+    lu.assertError(self.a.fromData, self.a, "aaa")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8/128")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8::/129")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8::/")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8::/a")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8::a:1::2:/32")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8:1::2::/32")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8::1:2::/32")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8::1:2::/32")
+    lu.assertError(self.a.fromData, self.a, "::1::/32")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8:aa11:11aa:12:ad:ff:1:2:3:4/128")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8:aa11:11aa:12:ad:ff:1:2/128")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8:aa11:11aa:12:ad:ff:1:2/128")
+    lu.assertError(self.a.fromData, self.a, "2001:Dg8::1/128")
+    lu.assertError(self.a.fromData, self.a, "2001:DB812::1/128")
+  end
+-- class TestIPv6Prefix
+
+
+TestChoice = {}
+  function TestChoice:setup()
+  end
+
+  function TestChoice:testOne()
+    local a = yang.basic_types.choice:create("my-choice", false)
+    a:add_case("c1", yang.basic_types.string:create("a-string", false))
+    a:add_case("c2", yang.basic_types.boolean:create("a-bool", false))
+    a:add_case("c3", yang.basic_types.uint16:create("an-int", false))
+
+    lu.assertEquals(a:hasValue(), false)
+    lu.assertEquals(a:toData(), nil)
+
+    a:fromData_noerror("data string")
+    lu.assertEquals(a:hasValue(), true)
+    lu.assertEquals(a:toData(), "data string")
+
+    a:fromData_noerror(false)
+    lu.assertEquals(a:hasValue(), true)
+    lu.assertEquals(a:toData(), false)
+
+    a:fromData_noerror(12345)
+    lu.assertEquals(a:hasValue(), true)
+    --lu.assertEquals(a:toData(), 12345)
+
+    -- this one should not work, it should stay at the previous value
+    a:fromData_noerror({['aaa']='bbb'})
+    lu.assertEquals(a:hasValue(), true)
+    --lu.assertEquals(a:toData(), 12345)
+
+    a:clearData()
+    --lu.assertEquals(a:hasValue(), false)
+    lu.assertEquals(a:getActiveCase(), nil)
+
+  end
+
+  function TestChoice:testContainerWithChoice()
+    local c = yang.basic_types.container:create("my-container", false)
+    local cc = yang.basic_types.choice:create("my-choice", false)
+
+    local cc1c = yang.basic_types.container:create("choice-val-int", false)
+    local cc1ci = yang.basic_types.uint32:create("choice-int", false)
+
+    local cc2c = yang.basic_types.container:create("choice-val-bool", false)
+    local cc2ci = yang.basic_types.boolean:create("choice-bool", false)
+
+    cc1c:add_node(cc1ci)
+    cc:add_case("l1", cc1c)
+
+    cc2c:add_node(cc2ci)
+    cc:add_case("l2", cc2c)
+
+    c:add_node(cc)
+
+    local data_int = json.decode('{"my-container": { "choice-int": 4 } }')
+    local data_bool = json.decode('{"my-container": { "choice-bool": false } }')
+    c:fromData_noerror(data_int)
+    c:fromData_noerror(data_bool)
+    print(json.encode(c:toData()))
+  end
+
+  function TestChoice:temp()
+  end
+
+  function TestChoice:testChoiceInChoice()
+    local c = yang.basic_types.container:create("my-container", false)
+    local cc1 = yang.basic_types.choice:create("my-first-choice", false)
+    local cc1a = yang.basic_types.container:create("first-choice-container-one", false)
+    local cc1b = yang.basic_types.container:create("first-choice-container-two", false)
+
+    cc1a:add_node(yang.basic_types.uint16:create('an-int'), false)
+
+    local cc1bc = yang.basic_types.choice:create("my-second-choice", false)
+    cc1bc:add_case('second-choice-integer', yang.basic_types.uint16:create('second-choice-int', false))
+    cc1bc:add_case('second-choice-boolean', yang.basic_types.boolean:create('second-choice-bool', false))
+    cc1b:add_node(cc1bc)
+
+    cc1:add_case('first-choice', cc1a)
+    cc1:add_case('second-choice', cc1b)
+    c:add_node(cc1)
+
+    local data = {}
+
+    --lu.assertEquals(c:toData(), {})
+
+    data = json.decode('{"first-choice-container-one": { "an-int": 4 } }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), data)
+
+    c:clearData()
+    lu.assertEquals(c:toData(), {})
+
+    data = json.decode('{"first-choice-container-one": { "an-int": 4 } }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), data)
+
+    c:clearData()
+    lu.assertEquals(c:toData(), {})
+
+    data = json.decode('{"something-completely-different": { "foobar": "aaa" } }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), {})
+
+    data = json.decode('{"something-completely-different": { "foobar": 1 } }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), {})
+
+    data = json.decode('{"first-choice-container-one": { "foobar": 1 } }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), {})
+
+    -- (note the first-choice container is the wrong one)
+    data = json.decode('{"first-choice-container-one": { "second-choice-bool": true } }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), {})
+
+    data = json.decode('{"first-choice-container-two": { "second-choice-bool": true } }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), data)
+
+    data = json.decode('{"first-choice-container-two": { "second-choice-int": 1 } }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), data)
+
+    c:clearData()
+    data = json.decode('{"first-choice-container-two": { "second-choice-int": "foo" } }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), {})
+  end
+-- class TestChoice
 
 
 

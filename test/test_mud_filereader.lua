@@ -1,6 +1,7 @@
 #!/usr/bin/lua
 
 local mu = require("mudv2")
+local yang = require("yang")
 local lu = require("luaunit")
 
 local json = require("cjson")
@@ -40,5 +41,78 @@ TestMudFileReader = {} --class
     lu.assertError(self.a.mud_container.getNode, self.a.mud, "from-device-policy/access-lists/access-list[-1]/name")
     lu.assertError(self.a.mud_container.getNode, self.a.mud, "from-device-policy/access-lists/access-list/name")
   end
--- class testMud
+
+  function TestMudFileReader:testGetPath()
+    self.a:parseFile("../examples/example_from_draft.json")
+    print(json.encode(self.a.mud_container:toData()))
+  end
+
+  function TestMudFileReader:testGetPath2()
+    self.a:parseFile("../examples/example_from_draft.json")
+    lu.assertEquals(self.a.mud_container:getRootNode():getName(), "mud-container")
+    lu.assertEquals(self.a.mud_container.yang_nodes['ietf-mud:mud']:getRootNode():getName(), "mud-container")
+    lu.assertEquals(self.a.mud_container.yang_nodes['ietf-mud:mud'].yang_nodes['to-device-policy']:getRootNode():getName(), "mud-container")
+    local n = self.a.mud_container.yang_nodes['ietf-access-control-list:acls'].yang_nodes['acl'].value[2].yang_nodes["aces"].yang_nodes["ace"].value[1].yang_nodes['matches'].yang_nodes['l5'].cases['ipv6']
+    --local n = self.a.mud_container.yang_nodes['ietf-access-control-list:acls'].yang_nodes['acl'].value[2].yang_nodes["aces"].yang_nodes["ace"].value[1].yang_nodes['matches']
+    --error(n:getName() .. " (" .. n:getType() .. "): " .. json.encode(n:toData()))
+    lu.assertEquals(n:getPath(), "mud-container/ietf-access-control-list:acls/acl[2]/list_entry/aces/ace[1]/list_entry/matches/ipv6")
+  end
+
+  function TestMudFileReader:testGetPath3()
+    self.a:parseFile("../examples/example_from_draft.json")
+    local paths = {}
+    for i,n in pairs(self.a.mud_container:getAll()) do
+      --print("[XX] calling getpath[] " .. i)
+      table.insert(paths, n:getPath())
+    end
+    local expected = {
+      "mud-container",
+      "mud-container/ietf-mud:mud",
+      "mud-container/ietf-mud:mud/to-device-policy",
+      "mud-container/ietf-mud:mud/to-device-policy/access-lists",
+      "mud-container/ietf-mud:mud/to-device-policy/access-lists/access-list",
+      "mud-container/ietf-mud:mud/to-device-policy/access-lists/access-list[1]/list_entry",
+      "mud-container/ietf-mud:mud/to-device-policy/access-lists/access-list[1]/list_entry/name",
+      "mud-container/ietf-mud:mud/from-device-policy",
+      "mud-container/ietf-mud:mud/from-device-policy/access-lists",
+      "mud-container/ietf-mud:mud/from-device-policy/access-lists/access-list",
+      "mud-container/ietf-mud:mud/from-device-policy/access-lists/access-list[1]/list_entry",
+      "mud-container/ietf-mud:mud/from-device-policy/access-lists/access-list[1]/list_entry/name",
+      "mud-container/ietf-mud:mud/last-update",
+      "mud-container/ietf-mud:mud/systeminfo",
+      "mud-container/ietf-mud:mud/cache-validity",
+      "mud-container/ietf-mud:mud/is-supported",
+      "mud-container/ietf-mud:mud/mud-url",
+      "mud-container/ietf-mud:mud/mud-version",
+      "mud-container/ietf-access-control-list:acls",
+      "mud-container/ietf-access-control-list:acls/acl",
+      "mud-container/ietf-access-control-list:acls/acl[1]/list_entry",
+      "mud-container/ietf-access-control-list:acls/acl[1]/list_entry/aces",
+      "mud-container/ietf-access-control-list:acls/acl[1]/list_entry/aces/ace",
+      "mud-container/ietf-access-control-list:acls/acl[1]/list_entry/aces/ace[1]/list_entry",
+      "mud-container/ietf-access-control-list:acls/acl[1]/list_entry/aces/ace[1]/list_entry/matches",
+      "mud-container/ietf-access-control-list:acls/acl[1]/list_entry/aces/ace[1]/list_entry/matches/tcp",
+      "mud-container/ietf-access-control-list:acls/acl[1]/list_entry/aces/ace[1]/list_entry/matches/ipv6",
+      "mud-container/ietf-access-control-list:acls/acl[1]/list_entry/aces/ace[1]/list_entry/name",
+      "mud-container/ietf-access-control-list:acls/acl[1]/list_entry/aces/ace[1]/list_entry/actions",
+      "mud-container/ietf-access-control-list:acls/acl[1]/list_entry/aces/ace[1]/list_entry/actions/forwarding",
+      "mud-container/ietf-access-control-list:acls/acl[1]/list_entry/type",
+      "mud-container/ietf-access-control-list:acls/acl[1]/list_entry/name",
+      "mud-container/ietf-access-control-list:acls/acl[2]/list_entry",
+      "mud-container/ietf-access-control-list:acls/acl[2]/list_entry/aces",
+      "mud-container/ietf-access-control-list:acls/acl[2]/list_entry/aces/ace",
+      "mud-container/ietf-access-control-list:acls/acl[2]/list_entry/aces/ace[1]/list_entry",
+      "mud-container/ietf-access-control-list:acls/acl[2]/list_entry/aces/ace[1]/list_entry/matches",
+      "mud-container/ietf-access-control-list:acls/acl[2]/list_entry/aces/ace[1]/list_entry/matches/tcp",
+      "mud-container/ietf-access-control-list:acls/acl[2]/list_entry/aces/ace[1]/list_entry/matches/ipv6",
+      "mud-container/ietf-access-control-list:acls/acl[2]/list_entry/aces/ace[1]/list_entry/name",
+      "mud-container/ietf-access-control-list:acls/acl[2]/list_entry/aces/ace[1]/list_entry/actions",
+      "mud-container/ietf-access-control-list:acls/acl[2]/list_entry/aces/ace[1]/list_entry/actions/forwarding",
+      "mud-container/ietf-access-control-list:acls/acl[2]/list_entry/type",
+      "mud-container/ietf-access-control-list:acls/acl[2]/list_entry/name"
+    }
+
+    lu.assertEquals(paths, expected)
+  end
+-- class testMudFileReader
 

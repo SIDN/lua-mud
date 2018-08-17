@@ -2,6 +2,26 @@ local json = require("json")
 
 local _M = {}
 
+local function tdump (tbl, indent)
+  if not indent then indent = 0 end
+  for k, v in pairs(tbl) do
+    if k ~= 'parent' then
+      formatting = string.rep("  ", indent) .. k .. ": "
+      if type(v) == "table" then
+        print(formatting)
+        tdump(v, indent+1)
+      elseif type(v) == 'boolean' then
+        print(formatting .. tostring(v))
+      elseif type(v) == 'function' then
+        print(formatting .. "<function>")
+      else
+        print(formatting .. v)
+      end
+    end
+  end
+end
+_M.tdump = tdump
+
 -- extend t1 with all the elements of t2
 function _M.table_extend(t1, t2)
   for i,v in pairs(t2) do
@@ -65,10 +85,7 @@ end
 
 -- Finds the index of the given element in the given list
 function _M.get_index_of(list, element, max_list_if_not_found)
-  if max_list_if_not_found then
-    print("OLALAL")
-  end
-
+  if element == nil then error("get_index_of() called with nil element") end
   for i,v in pairs(list) do
     if v == element then
       return i
@@ -78,6 +95,8 @@ function _M.get_index_of(list, element, max_list_if_not_found)
   if max_list_if_not_found then
     return table.getn(list)
   else
+    print("[XX] ELEMENT NOT FOUND IN LIST: " .. json.encode(element:toData()))
+    --tdump(element)
     error('element not found in list')
   end
 end
@@ -90,41 +109,17 @@ end
 -- 'pick them all'
 function get_path_list_index(path)
   if path ~= nil then
-    print("[Xx] PATH " .. path)
-    local name, index = string.match(path, "^([%w-_]+)%[(%d+)%]")
+    local name, index = string.match(path, "^([%w-_]*)%[(%d+)%]")
     if index ~= nil then
-      print("[XX] GOT INDEX: " .. index)
       return name, tonumber(index)
     else
-      name, wildcard = string.match(path, "^([%w-_]+)%[(%*)%]")
-      print("[XX] ANME")
-      print(name)
-      print(wildcard)
+      name, wildcard = string.match(path, "^([%w-_]*)%[(%*)%]")
       if wildcard ~= nil then
-        print("[XX] GOT WILDCARD in '" .. path .. "'")
         return name, -1
       end
     end
   end
 end
-
-local function tdump (tbl, indent)
-  if not indent then indent = 0 end
-  for k, v in pairs(tbl) do
-    formatting = string.rep("  ", indent) .. k .. ": "
-    if type(v) == "table" then
-      print(formatting)
-      tdump(v, indent+1)
-    elseif type(v) == 'boolean' then
-      print(formatting .. tostring(v))
-    elseif type(v) == 'function' then
-      print(formatting .. "<function>")
-    else
-      print(formatting .. v)
-    end
-  end
-end
-_M.tdump = tdump
 
 -- Based on http://lua-users.org/wiki/InheritanceTutorial
 -- Defining a class with inheritsFrom instead of just {} will
@@ -191,7 +186,7 @@ function _M.deepcopy(orig)
         copy = {}
         for orig_key, orig_value in next, orig, nil do
             if orig_key == 'parent' then
-              -- don't deepcopy upwards references
+              -- don't deepcopy upwards references, only copy the reference
               copy[orig_key] = orig_value
             else
               copy[_M.deepcopy(orig_key)] = _M.deepcopy(orig_value)

@@ -41,6 +41,10 @@ local YangNode_mt = { __index = YangNode }
     return self.value ~= nil
   end
 
+  function YangNode:clearData()
+    self.value = nil
+  end
+
   function YangNode:setValue(value)
     error("setValue needs to be implemented in subclass")
   end
@@ -53,14 +57,13 @@ local YangNode_mt = { __index = YangNode }
     return self.mandatory
   end
 
-  -- note: this 'json_data' is already read with json.decode()!
-  -- (so it is not, in fact, json data)
-  -- maybe make it 'fromData' or 'fromBasicData' or something?
-  -- what does one call data comprising only basic language types
-  function YangNode:fromData(json_data)
-    -- for basic types, we simply use setValue (which contains the correct checks)
-    -- complex types should override this method
-    self:setValue(json_data)
+  -- tries to set data. returns true if success, fail if not
+  function YangNode:fromData_noerror(data)
+    --print("[XX] [BASETYPE] fromData_noerror called on " ..self:getName().. " with data " .. json.encode(data))
+    r,err = pcall(self.setValue, self, data)
+    --print("[XX] [BASETYPE] returning fromData_noerror " .. self:getName() .. " with value: " .. tostring(r))
+    --if r then print("[XX] [BASETYPE] data: " .. json.encode(self:toData())) end
+    return r
   end
 
   -- returns the current value as native data; for simple types, this
@@ -88,29 +91,38 @@ local YangNode_mt = { __index = YangNode }
     return self.parent
   end
 
-  function YangNode:setParent(node)
-    self.parent = node
+  function YangNode:getRootNode()
+    local curNode = self
+    --print("[XX] LOOKING FOR ROOT NODE OF " .. curNode:getName() .. " (" .. tostring(curNode))
+    while curNode:getParent() ~= nil do
+      --print("[XX] LOOKING FOR ROOT NODE2 OF " .. curNode:getName() .. " (" .. tostring(curNode))
+      curNode = curNode:getParent()
+      --print("[XX] LOOKING FOR ROOT NODE2.2 OF " .. curNode:getName() .. " (" .. tostring(curNode))
+      if (curNode:getParent() == nil) then
+        --print("[XX] LOOKING BUT " .. curNode:getName() .. " has no parent" .. " (" .. tostring(curNode))
+      end
+    end
+      --print("[XX] LOOKING FOR ROOT NODE3 OF " .. curNode:getName() .. " (" .. tostring(curNode))
+    return curNode
   end
 
-  -- set data_incomplete to true if the getPath() is called while fromData() has not finished yet
-  -- (it might need to find a path for a value it was parsing, which then does not exist in the
-  -- internal data structure yet. In that case, we use the max index when showing list paths if the
-  -- item is not found)
-  function YangNode:getPath(data_incomplete)
-    -- TODO: make a specific one for list, it needs the index
-    if self:getParent() ~= nil and self:getParent():getType() == 'list' then
-      print("[XX] getPath in list " .. self:getName())
-      print("[XX] parent name: " .. self:getParent():getName())
-      print(self:getParent():getValue())
-      result = self:getParent():getPath(data_incomplete) .. "[" .. util.get_index_of(self:getParent():getValue(), self, data_incomplete) .. "]"
-      print("[XX] getPath in list found result")
-      return result
+  function YangNode:setParent(parent, recurse)
+    --print("[XX] SETPARENT OF " .. self:getName() .. " TO " .. parent:getName())
+    self.parent = parent
+  end
+
+  -- requester may be zero; it is passed to the getPath of the
+  -- parent; in some cases the result may differ depending on who's asking
+  -- (like, say, list indices)
+  function YangNode:getPath(requester)
+    --print("[XX] GETPATH OF " .. self:getType() .. " " .. self:getName() .. " with data " .. json.encode(self:toData()))
+    if requester ~= nil then
+      --print("[XX] GETPATH REQUESTED BY " .. requester:getName() .. " which has data " .. json.encode(requester:toData()))
+    end
+    if self.parent ~= nil then
+      return self.parent:getPath(self) .. "/" .. self:getName()
     else
-      if self:getParent() ~= nil then
-        return self:getParent():getPath(data_incomplete) .. "/" .. self:getName()
-      else
-        return self:getName()
-      end
+      return self:getName()
     end
   end
 _M.YangNode = YangNode
@@ -344,58 +356,101 @@ container_mt = { __index = container }
 
   function container:add_node(node_type_instance)
     if node_type_instance == nil then error("container:add_node() called with nil node_type_instance") end
-    node_type_instance:setParent(self)
     self.yang_nodes[node_type_instance:getName()] = node_type_instance
+    --print("[XX] [CONTAINER] [SETPARENT] of " ..node_type_instance:getName() .. " TO " .. self:getName())
+    node_type_instance:setParent(self)
   end
 
-  function container:fromData(json_data, check_all_data_used)
-    -- make a copy of the data, which we can use to track whether all
-    -- elements have been processed
-    local data_copy = util.deepcopy(json_data)
+  function container:setParent(parent, recurse)
+    self.parent = parent
+    if recurse then
+      for i,n in pairs(self.yang_nodes) do n:setParent(self, recurse) end
+    end
+  end
+
+  function container:fromData_noerror(data)
+    if type(data) ~= 'table' then
+      return false
+    end
+    if self:getName() == "source-port" then
+      print("[XX] calling fromData() on container " .. self:getName() .. " with value " .. json.encode(data))
+    end
+    local any_match = false
     for node_name, node in pairs(self.yang_nodes) do
-      if json_data[node_name] ~= nil then
-        node:fromData(json_data[node_name])
-        data_copy[node_name] = nil
-      elseif node:isMandatory() then
-        --error('mandatory node ' .. node_name .. ' not found in: ' .. json.encode(json_data[node_name]))
-        error('mandatory node ' .. node_name .. ' not found in: ' .. json.encode(json_data))
-      --else
-      --  print("[XX] node with name " .. node_name .. " has no value but not mandatory: " .. json.encode(node:isMandatory()))
+      -- special case for choices
+      if node:isa(_M.choice) then
+        if self:getName() == "source-port" then
+          print("[XX] [container] we have a choice node, trying alts")
+        end
+        -- the choice value can be direct or named, try named versions first
+        if node:fromData_noerror(data) then
+          print("[XX] [container] unnamed choice has match: " .. node:getName())
+          any_match = true
+          break
+        else
+          for cname,cnode in pairs(data) do
+            print("[XX] [container] try choice named " .. cname)
+            if node:hasCase(cname) and node:fromData_noerror(cnode, cname) then
+              any_match = true
+              break
+            end
+          end
+        end
+      elseif data[node_name] ~= nil then
+        if node:fromData_noerror(data[node_name]) then
+          any_match = true
+        end
       end
     end
+    --if any_match and self:getName() == "matches" then
+      --print("[XX] NOT GETPATH BUT DATA OF " .. tostring(self) .. " NOW " .. json.encode(self:toData()))
+      --print("[XX] NOT GETPATH BUT THAT MAKES MY PARENT HAVE " .. json.encode(self:getParent():toData()))
+      --if self:getParent():getParent() ~= nil then
+      --  print("[XX] GETPATH GRANDPARENT IS OF TYPE " .. self:getParent():getParent():getType())
+      --end
+      --print("[XX] NOT GETPATH BUT THAT MAKES MY PARENT HAVE " .. json.encode(self:getParent():toData()))
+    --end
+    return any_match
+  end
 
-    if json.encode(data_copy) ~= "{}" then
-      error("Unhandled data: " .. json.encode(json_data))
+  function container:clearData()
+    for node_name, node in pairs(self.yang_nodes) do
+      node:clearData()
     end
   end
 
   function container:hasValue()
     for i,node in pairs(self.yang_nodes) do
-      if node:hasValue() then return true end
+      if node:hasValue() then
+        --print("[XX] [CONTAINER] hasValue() called on " .. self:getName() .. ": true")
+        return true
+      end
     end
+    --print("[XX] [CONTAINER] hasValue() called on " .. self:getName() .. ": false")
     return false
   end
 
   function container:toData()
     local result = {}
     for name,value in pairs(self.yang_nodes) do
-      local v = value:toData()
-      -- exclude empty nodes
-      --print("[XX] CONTAINER TODATA: " .. json.encode(v))
-      if v ~= nil and (type(v) ~= 'table' or tablelength(v) > 0) then
-          --print("[XX] ADDING TO CONTAINER: " .. name .. " = " .. json.encode(v))
-          --if json.encode(v) == "{}" then
-          --  print("[XX][XX]")
-          --  print(v~=nil)
-          --  print(type(v) ~= 'table')
-          --  print("[XX][XX]")
-          --  error("bad, empty data should not be here " .. json.encode(tablelength(v)))
-          --end
-          result[name] = v
+      local v
+      -- if the child element is a choice, the name is not the name of the element, but of its
+      -- active case
+      local actual_name = name
+      if value:isa(_M.choice) then
+        if value:getActiveCase() ~= nil then
+          actual_name = value:getActiveCase():getName()
+          v = value:toData()
+        else
+          v = nil
+        end
+      else
+        v = value:toData()
       end
-      --  value:toData()
-      --end
-      --if tablelength(v) > 0 then result[name] = value:toData() end
+      -- exclude empty nodes
+      if v ~= nil and (type(v) ~= 'table' or tablelength(v) > 0) then
+          result[actual_name] = v
+      end
     end
     return result
   end
@@ -441,11 +496,21 @@ container_mt = { __index = container }
     error("node " .. name_to_find .. " not found in " .. self:getType() .. " subnodes: [ " .. util.str_join(", ", self:getNodeNames()) .. " ]")
   end
 
+  -- returns the child of the container. If there are more than one
+  -- returns the first one it finds
+  function container:getChild()
+    for n,node in pairs(self.yang_nodes) do
+      return node
+    end
+  end
+
   function container:getAll()
     local result = {}
     table.insert(result, self)
     for i,n in pairs(self.yang_nodes) do
-      util.table_extend(result, n:getAll())
+      if n:hasValue() then
+        util.table_extend(result, n:getAll())
+      end
     end
     return result
   end
@@ -454,14 +519,6 @@ container_mt = { __index = container }
     return self.yang_nodes[node_name] ~= nil
   end
 _M.container = container
-
-local function list_get_path(node)
-    if node:getParent() == nil then error("PARENT NIL!!!") end
-    print("[XX] LIST_GET_PATH WITH PARENT " .. node:getParent():getName() .. " {type " .. node:getParent():getType() .. "}")
-    print(node:getParent():getValue())
-    print("[XX] OO [XX]")
-    return node:getParent():getPath() .. "[" .. util.get_index_of(node:getParent():getValue(), node) .. "]"
-end
 
 -- we implement lists by making them lists of containers, with
 -- an interface that skips the container part (mostly)
@@ -482,9 +539,16 @@ list_mt = { __index = list }
   -- for that. This is to define what those elements should look like
   function list:add_list_node(node_type_instance)
     self.entry_nodes[node_type_instance:getName()] = node_type_instance
-    --print("[XX] SET PARENT OF " .. node_type_instance:getName() .. " TO " .. self:getName())
     node_type_instance:setParent(self)
-    --node_type_instance.getPath = list_get_path
+    --print("[XX] MAYBE RELEVANT TOO FOR GETPATH BUT I JUST SET A PARENT TO " .. tostring(node_type_instance))
+  end
+
+  function list:setParent(parent, recurse)
+    self.parent = parent
+    if recurse then
+      for i,n in pairs(self.entry_nodes) do n:setParent(self, recurse) end
+      for i,n in pairs(self.value) do n:setParent(self, recurse) end
+    end
   end
 
   -- Create a new entry in the list, based on the specification
@@ -495,20 +559,12 @@ list_mt = { __index = list }
     local new_node = _M.container:create('list_entry')
     -- TODO: should this be a deep copy?
     new_node.yang_nodes = util.deepcopy(self.entry_nodes)
-    new_node:setParent(self)
-    new_node.parent = self
     --new_node.value = nil
-    -- make sure the parent of the nodes within 'list_entry' points to the list_entry
     table.insert(self.value, new_node)
+    new_node:setParent(self, true)
     for i,n in pairs(new_node.yang_nodes) do
       n:setParent(new_node)
     end
-
-    -- update the childs getPath so it adds the list index
-    --function new_node:getPath()
-    --  return self:getParent():getPath() .. "[" .. util.get_index_of(self:getParent():getValue(), self) .. "]"
-    --end
-    --new_node.getPath = list_get_path
     return new_node
   end
   -- TODO: should we error on attempts to use getValue and setValue?
@@ -518,13 +574,25 @@ list_mt = { __index = list }
     return table.getn(self.value) > 0
   end
 
-  -- Fill the list with the given raw data
-  function list:fromData(data)
-    -- TODO: should we empty our local data to be sure at this point?
+  function list:fromData_noerror(data)
+    --print("[XX] [LIST] fromData_noerror called on " ..self:getName().. " with data " .. json.encode(data))
+    local any_match = false
     for i,data_el in pairs(data) do
       local new_el = self:create_list_element()
-      new_el:fromData(data_el)
+      if new_el:fromData_noerror(data_el) then
+        any_match = true
+        --print("[XX] MAYBE RELEVANT FOR GETPATH BUT NEW ENTRY IS " .. tostring(new_el))
+      end
     end
+    --print("[XX] [LIST] returning fromData_noerror " .. self:getName() .. " with value: " .. tostring(any_match))
+    --if any_match then
+    --  print("[XX] [LIST] data: " .. json.encode(self:toData()))
+    --end
+    return any_match
+  end
+
+  function list:clearData()
+    self.entry_nodes = {}
   end
 
   -- Returns the list elements as raw data
@@ -561,6 +629,27 @@ list_mt = { __index = list }
     end
     return result
   end
+
+  function list:getPath(requester)
+    --print("[XX] GETPATH OF LIST " .. self:getName() .. " with data: " .. json.encode(self:toData()))
+    --if requester ~= nil then
+    --  print("[XX] GETPATH REQUESTED BY " .. requester:getName() .. " which has data " .. json.encode(requester:toData()))
+    --end
+    local index_str = ""
+    local parent_str = ""
+    if self.parent ~= nil then
+      parent_str = self.parent:getPath(self) .. "/"
+    end
+    if requester ~= nil then
+      index_str = "[?]"
+      for i,n in pairs(self.value) do
+        if n == requester then
+          index_str = "[" .. i .. "]"
+        end
+      end
+    end
+    return parent_str .. self:getName() .. index_str
+  end
 _M.list = list
 
 -- TODO: remove
@@ -570,115 +659,149 @@ function tablelength(T)
   return count
 end
 
--- TODO: can we derive from the definition whether we need to 'remove' the intermediate step?
--- choice is a type where one or more of the defined choices can be used
 local choice = util.subClass("choice", _M.YangNode)
 choice_mt = { __index = choice }
-  function choice:create(nodeName, mandatory, singlechoice)
+
+  -- note that nodename is only used in the schema, not the data
+  function choice:create(nodeName, mandatory)
     local new_inst = _M.YangNode:create("choice", nodeName, mandatory)
     setmetatable(new_inst, choice_mt)
-    new_inst.choices = {}
-    new_inst.singleChoice = singlechoice
-    -- value is a table of entries, each of which should conform to
-    -- the specification of entry_nodes
-    new_inst.is_named = false
+    new_inst.cases = {}
     return new_inst
   end
 
-  -- set this value to 'true' if the choice is determined by a named option
-  function choice:set_named(is_named_choice)
-    self.is_named = is_named_choice
+  -- cases can be of any type
+  -- TODO: how to handle block of multiple statements in one case? Does this happen?
+  function choice:add_case(caseName, caseNode)
+    self.cases[caseName] = caseNode
+    caseNode:setParent(self)
   end
 
---  function choice:setValue(value)
---    -- do we need this?
---    error("Got setValue for: " .. json.encode(value))
---  end
-
-  function choice:add_choice(name, node_type)
-    self.choices[name] = node_type
-    node_type:setParent(self)
-  end
-
--- hmm, do we need to differentiate name-based choice and content-based choice?
--- need to consult the YANG rfc.
-  function choice:fromData(data)
-    local found = false
-    for data_name, data_data in pairs(data) do
-      if self.is_named then
-        for name,node_type in pairs(self.choices) do
-          if name == data_name then
-            node_type:fromData(data_data)
-            found = true
-          end
-          -- todo: improve error
-        end
-      end
-      -- fallback (can we remove the above and only use this?
-      if not found then
-        for name,node_type in pairs(self.choices) do
-          local status = pcall(node_type.fromData, node_type, data)
-          if status then found = true end
-        end
-        if not found then
-          error("Unknown choice value: " .. data_name .. " in '" .. self:getPath(true) .."'")
-        end
-      end
+  function choice:setParent(parent, recurse)
+    self.parent = parent
+    if recurse then
+      for i,n in pairs(self.cases) do n:setParent(self, recurse) end
     end
   end
 
-  function choice:toData(data)
-    local result = {}
-    for name,node in pairs(self.choices) do
-      -- TODO: do we need a hasValue() check for all types?
-      --if node:getValue() ~= nil then
-      local v = node:toData()
-      if v ~= nil and (type(v) ~= 'table' or tablelength(v) > 0) then
-        --print("[XX] CHOICE TODATA: " .. json.encode(node:toData()))
-        result[name] = node:toData()
-      end
-      -- TODO this seems wrong
-      if self.singleChoice then
-        for n,v in pairs(result) do
-          return v
-        end
-      end
-      --print("[XX] RETURNING CHOICE: " .. json.encode(result))
-      --print("[XX] CHOICE RESULT SIZE: " .. json.encode(tablelength(result)))
+  function choice:getCaseCount()
+    local result = 0
+    for _,__ in pairs(self.cases) do
+      result = result + 1
     end
     return result
   end
 
+  function choice:getAll()
+    local result = {}
+    local active = self:getActiveCase()
+    if active ~= nil then
+      table.insert(result, active)
+    end
+    return result
+  end
+
+  function choice:getPath(requester)
+    --print("[XX] GETPATH OF CHOICE " .. self:getName() .. " " .. json.encode(self:toData()))
+    --if requester ~= nil then
+    --  print("[XX] GETPATH REQUESTED BY " .. requester:getName() .. " which has data " .. json.encode(requester:toData()))
+    --end
+    -- the choice itself does not show up in the data
+    if self.parent ~= nil then
+      --print("[XX] passing GETPATH to parent " .. self.parent:getName() .. "(" ..  tostring(self.parent) .. ")")
+      return self.parent:getPath(self)
+    else
+      return ""
+    end
+  end
+
+  -- TODO remove this
+  function choice:set_named(is_named)
+  end
+
+  function choice:getActiveCase()
+    for i,c in pairs(self.cases) do
+      if c:hasValue() then
+        return c
+      end
+    end
+  end
+
+  function choice:clearData()
+    local active_case = self:getActiveCase()
+    if active_case ~= nil then
+      self:getActiveCase():clearData()
+    end
+  end
+
+  function choice:toData()
+    local ac = self:getActiveCase()
+    if ac == nil then return nil end
+    return ac:toData()
+  end
+
+  -- Returns true if a value has been set
+  --function choice:setValue(value)
+  --  for case_name,case in pairs(self.cases) do
+  --    print("[XX] try choice: " .. self:getPath() .. " with data: " .. json.encode(value))
+  --  end
+  --  error("No valid choice found for choice " .. self:getName())
+  --end
+
   function choice:hasValue()
-    for name,node in pairs(self.choices) do
-      if node:hasValue() then return true end
+    for i,n in pairs(self.cases) do
+      if n:hasValue() then
+        --print("[XX] [CHOICE] hasValue() called on " .. self:getName() .. ": true")
+        return true
+      end
+    end
+    --print("[XX] [CHOICE] hasValue() called on " .. self:getName() .. ": false")
+    return false
+  end
+
+  function choice:hasCase(case_name)
+    --print("[XX] [CHOICE] hasCase called with val " .. case_name)
+    for i,n in pairs(self.cases) do
+      --print("[XX] [CHOICE] trying case " .. n:getName())
+      if n:getName() == case_name then return true end
     end
     return false
   end
 
-  -- returns the first non-empty choice
-  function choice:getChoice()
-    for name,node in pairs(self.choices) do
-      if node:hasValue() then return node end
-    end
-    error('no choice set')
-  end
+  -- if choice_name is not nil, it is checked against the cases
+  -- if it is nil, any case with a matching dataset succeeds
+  function choice:fromData_noerror(data, choice_name)
+    print("[XX] [CHOICE] fromData_noerror called on " ..self:getName().. " with data " .. json.encode(data))
 
-
-  -- return all the choice nodes that were set
-  function choice:getChoices()
-    local result = {}
-    for name,node in pairs(self.choices) do
-      -- TODO: yeah we really need a hasValue() check
-      local v = node:toData()
-      if v ~= nil and (type(v) ~= 'table' or tablelength(v) > 0) then
-        --print("[XX] CHOICE TODATA: " .. json.encode(node:toData()))
-        table.insert(result, node)
+    -- can we do this better? right now we copy, and clear them, then put them back
+    -- the reason for this is 1: no changes if it fails, 2. to keep track of whether one
+    -- succeeded and 3. reset the other cases if one succeeds
+    local cases_copy = util.deepcopy(self.cases)
+    local found = false
+    for n,c in pairs(cases_copy) do
+      c:clearData()
+      if not found then
+        --print("[XX] [CHOICE] trying option " .. c:getName() .. " (" .. c:getType() .. ")")
+        --print("[XX] [CHOICE] with data: " .. json.encode(data))
+        if c:fromData_noerror(data) then
+          if choice_name == nil or choice_name == c:getName() then
+            found = true
+            --print("[XX] [CHOICE] found it in " .. c:getName() .. ": " .. json.encode(c:toData()))
+          end
+        end
       end
     end
-    return result
+    --print("[XX] [CHOICE] returning fromData_noerror " .. self:getName() .. " with value: " .. tostring(found))
+    if found then
+      --print("[XX] [CHOICE] data: " .. json.encode(self:toData()))
+      self.cases = cases_copy
+      for i,c in pairs(self.cases) do
+        c:setParent(self)
+      end
+    end
+    return found
   end
+  --function choice:
 _M.choice = choice
-
 
 return _M
