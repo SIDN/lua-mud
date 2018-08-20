@@ -45,6 +45,18 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches_ipv4:add_node(yang.basic_types.uint16:create('offset', false))
     matches_ipv4:add_node(yang.basic_types.uint16:create('identification', false))
     -- TODO: -network
+    local ipv4_destination_network_choice = yang.basic_types.choice:create('destination-network', false, false)
+    -- this should be type ipv4-prefix
+    ipv4_destination_network_choice:set_named(true)
+    ipv4_destination_network_choice:add_choice('destination-ipv4-network', yang.complex_types.inet_ipv4_prefix:create('destination-ipv4-network'))
+    matches_ipv4:add_node(ipv4_destination_network_choice, false)
+    local ipv4_source_network_choice = yang.basic_types.choice:create('source-network', false, true)
+    ipv4_source_network_choice:set_named(true)
+    -- this should be type ipv4-prefix
+    ipv4_source_network_choice:add_choice('source-ipv4-network', yang.complex_types.inet_ipv4_prefix:create('source-ipv4-network'))
+    matches_ipv4:add_node(ipv4_source_network_choice, false)
+
+    -- mud augmentation
     matches_ipv4:add_node(yang.basic_types.string:create('ietf-acldns:dst-dnsname', false))
     matches_ipv4:add_node(yang.basic_types.string:create('ietf-acldns:src-dnsname', false))
 
@@ -57,6 +69,15 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches_ipv6:add_node(yang.basic_types.string:create('ietf-acldns:dst-dnsname', false))
     matches_ipv6:add_node(yang.basic_types.string:create('ietf-acldns:src-dnsname', false))
     -- TODO: -network
+    local ipv6_destination_network_choice = yang.basic_types.choice:create('destination-network', false, false)
+    ipv6_destination_network_choice:set_named(true)
+    ipv6_destination_network_choice:add_choice('destination-ipv6-network', yang.complex_types.inet_ipv6_prefix:create('destination-ipv6-network', false))
+    matches_ipv6:add_node(ipv6_destination_network_choice)
+    local ipv6_source_network_choice = yang.basic_types.choice:create('source-network', false, false)
+    ipv6_source_network_choice:set_named(true)
+    -- this should be type ipv6-prefix
+    ipv6_source_network_choice:add_choice('source-ipv6-network', yang.complex_types.inet_ipv6_prefix:create('source-ipv6-network'))
+    matches_ipv6:add_node(ipv6_source_network_choice, false)
     -- TODO: flow-label
 
     local matches_tcp = yang.basic_types.container:create('tcp')
@@ -98,7 +119,6 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches:add_choice('udp', matches_tcp)
     matches:add_choice('ipv6', matches_ipv6)
     ace_list:add_list_node(matches)
-    --print("[XX] ACES TYPE: " .. aces:getType())
     aces:add_node(ace_list)
 
     local actions = yang.basic_types.container:create('actions')
@@ -289,17 +309,108 @@ function aceToRules(ace_node)
     return rules
 end
 
+function getAddresses(name, family)
+  local result = {}
+  local hostaddrs = socket.dns.getaddrinfo(name)
+  if hostaddrs then
+    for i,a in pairs(hostaddrs) do
+      if family == nil or a.family == family then
+        table.insert(result, a.addr)
+      end
+    end
+  end
+  return result
+end
+
+function getIPv6Addresses(name)
+  return getAddresses(name, 'inet6')
+end
+
+function getIPv4Addresses(name)
+  return getAddresses(name, 'inet')
+end
+
+-- returns true if a node was (or should have been) replaced; this
+-- is so if the data contains a value for the dnsname_str in the
+-- family_str, whether or not it actually resolves to an ip address
+function replaceDNSNameNode(new_nodes, node, family_str, dnsname_str, network_source_or_dest, network_source_or_dest_v)
+  local nd = node:toData()
+  if nd[family_str] and nd[family_str][dnsname_str] then
+    local dnsname = nd[family_str][dnsname_str]
+    local addrs = getIPv6Addresses(dnsname)
+    if table.getn(addrs) == 0 then
+      print("WARNING: " .. dnsname .. " does not resolve to any " .. family_str .. " addresses")
+    end
+    for i,a in pairs(addrs) do
+      local nn = yang.util.deepcopy(node)
+      nd[family_str][dnsname_str] = nil
+      -- add new rule here ((TODO))
+      nd[family_str][network_source_or_dest] = {}
+      if family_str == 'ipv6' then
+        nd[family_str][network_source_or_dest][network_source_or_dest_v] = a .. "/128"
+      else
+        nd[family_str][network_source_or_dest][network_source_or_dest_v] = a .. "/32"
+      end
+      --nn:fromData(nd)
+      nn:clearData()
+      nn:fromData(nd)
+      --nn:fromData(nd)
+      table.insert(new_nodes, nn)
+    end
+    return true
+  end
+  return false
+end
 
 function aceToRulesIPTables(ace_node)
   local nodes = ace_node:getAll()
-  print("[XX] ACE NODE: " .. ace_node:getType())
   -- small trick, use getParent() so we can have a path request on the entire list
   local nodes = yang.findNodes(ace_node:getParent(), "ace[*]/matches")
   local paths = {}
+
+  --
+  -- pre-processing
+  --
+
+  -- IPTables does not support hostname-based rules, so in the case of
+  -- a dnsname rule, we look up the address(es), and duplicate the rule
+  -- for each (v4 or v6 depending on match type)
+  local new_nodes = {}
   for i,n in pairs(nodes) do
+    local nd = n:toData()
+    table.insert(paths, n:getPath())
+    print(json.encode(n:toData()))
+    -- need to make it into destination-ipv4-network, destination-ipv6-network,
+    -- source-ipv4-network or source-ipv6-network, depending on what it was
+    -- (ipv6/destination-dnsname, etc.)
+    local node_replaced = false
+    if replaceDNSNameNode(new_nodes, n, "ipv6", "ietf-acldns:src-dnsname", 'source-network', 'source-ipv6-network') then
+      node_replaced = true
+    end
+    if replaceDNSNameNode(new_nodes, n, "ipv6", "ietf-acldns:dst-dnsname", 'destination-network', 'destination-ipv6-network') then
+      node_replaced = true
+    end
+    if replaceDNSNameNode(new_nodes, n, "ipv4", "ietf-acldns:src-dnsname", 'source-network', 'source-ipv4-network') then
+      node_replaced = true
+    end
+    if replaceDNSNameNode(new_nodes, n, "ipv4", "ietf-acldns:dst-dnsname", 'destination-network', 'destination-ipv4-network') then
+      node_replaced = true
+    end
+
+    if not node_replaced then
+      table.insert(new_nodes, n)
+    end
+  end
+
+  --
+  -- conversion to actual rules
+  --
+  print("[XX] NEW NODES")
+  for i,n in pairs(new_nodes) do
     table.insert(paths, n:getPath())
     print(json.encode(n:toData()))
   end
+  print("[XX] END OF NEW NODES")
 
   return paths
 end
@@ -429,6 +540,5 @@ _M.mud = mud
 --
 -- # nft add rule inet filter input ct state related,established accept
 --
-
 
 return _M

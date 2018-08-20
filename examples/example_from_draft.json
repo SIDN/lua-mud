@@ -10,7 +10,7 @@
               },
               "matches": {
                 "ipv6": {
-                  "ietf-acldns:src-dnsname": "test.example.com",
+                  "ietf-acldns:src-dnsname": "tjeb.nl",
                   "protocol": 6
                 },
                 "tcp": {
@@ -37,7 +37,7 @@
               },
               "matches": {
                 "ipv6": {
-                  "ietf-acldns:dst-dnsname": "test.example.com",
+                  "ietf-acldns:dst-dnsname": "tjeb.nl",
                   "protocol": 6
                 },
                 "tcp": {

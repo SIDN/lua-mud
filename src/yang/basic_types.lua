@@ -41,6 +41,10 @@ local YangNode_mt = { __index = YangNode }
     return self.value ~= nil
   end
 
+  function YangNode:clearData()
+    self.value = nil
+  end
+
   function YangNode:setValue(value)
     error("setValue needs to be implemented in subclass")
   end
@@ -367,6 +371,12 @@ container_mt = { __index = container }
     end
   end
 
+  function container:clearData()
+    for node_name, node in pairs(self.yang_nodes) do
+      node:clearData()
+    end
+  end
+
   function container:hasValue()
     for i,node in pairs(self.yang_nodes) do
       if node:hasValue() then return true end
@@ -515,6 +525,10 @@ list_mt = { __index = list }
     end
   end
 
+  function list:clearData()
+    self.entry_nodes = {}
+  end
+
   -- Returns the list elements as raw data
   function list:toData()
     local result = {}
@@ -562,6 +576,9 @@ end
 -- choice is a type where one or more of the defined choices can be used
 local choice = util.subClass("choice", _M.YangNode)
 choice_mt = { __index = choice }
+  -- if singlechoice is true, it effectively removes the
+  -- named choice indirection (the choice data shows up directly as
+  -- a child of the choice node, not under the name of the choice)
   function choice:create(nodeName, mandatory, singlechoice)
     local new_inst = _M.YangNode:create("choice", nodeName, mandatory)
     setmetatable(new_inst, choice_mt)
@@ -609,9 +626,19 @@ choice_mt = { __index = choice }
           if status then found = true end
         end
         if not found then
-          error("Unknown choice value: " .. data_name .. " in '" .. self:getPath(true) .."'")
+          local allowed_choice = ""
+          for name,_ in pairs(self.choices) do
+            allowed_choice = allowed_choice .. ", '" .. name .. "'"
+          end
+          error("Unknown choice value: '" .. data_name .. "' in '" .. self:getPath(true) .."', choices are: " .. allowed_choice)
         end
       end
+    end
+  end
+
+  function choice:clearData()
+    for n,node in pairs(self.choices) do
+      node:clearData()
     end
   end
 

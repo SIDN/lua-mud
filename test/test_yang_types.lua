@@ -338,7 +338,63 @@ TestACL = {}
     local data = "aaaa"
     lu.assertError(self.a.setValue, self.a, data)
   end
--- class TestMacAddress
+-- class TestACL
+
+TestIPv4Prefix = {}
+  function TestIPv4Prefix:setup()
+    self.a = yang.complex_types.inet_ipv4_prefix:create('prefix')
+  end
+
+  function TestIPv4Prefix:testGoodAddresses()
+    self.a:fromData("192.0.2.0/32")
+    self.a:fromData("192.0.2.0/24")
+    self.a:fromData("192.0.2.0/8")
+    self.a:fromData("1.1.1.1/8")
+    self.a:fromData("255.255.255.255/0")
+  end
+
+  function TestIPv4Prefix:testBadAddresses()
+    lu.assertError(self.a.fromData, self.a, "256.0.2.0/32")
+    lu.assertError(self.a.fromData, self.a, "192.0.2.0/33")
+    lu.assertError(self.a.fromData, self.a, "192.0.2.0/-1")
+    lu.assertError(self.a.fromData, self.a, "-1.0.2.0/32")
+    lu.assertError(self.a.fromData, self.a, "a1.2.3.4/24")
+    lu.assertError(self.a.fromData, self.a, "1.2.3.4/a")
+  end
+-- class TestIPv4Prefix
+
+TestIPv6Prefix = {}
+  function TestIPv6Prefix:setup()
+    self.a = yang.complex_types.inet_ipv6_prefix:create('prefix')
+  end
+
+  function TestIPv6Prefix:testGoodAddresses()
+    self.a:fromData("2001:DB8::/32")
+    self.a:fromData("2001:DB8::1/128")
+    self.a:fromData("2001:DB8:aa11:11aa:12:ad:ff:1/128")
+    self.a:fromData("::/128")
+  end
+
+  function TestIPv6Prefix:testBadAddresses()
+    lu.assertError(self.a.fromData, self.a, "")
+    lu.assertError(self.a.fromData, self.a, "aaa")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8/128")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8::/129")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8::/")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8::/a")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8::a:1::2:/32")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8:1::2::/32")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8::1:2::/32")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8::1:2::/32")
+    lu.assertError(self.a.fromData, self.a, "::1::/32")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8:aa11:11aa:12:ad:ff:1:2:3:4/128")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8:aa11:11aa:12:ad:ff:1:2/128")
+    lu.assertError(self.a.fromData, self.a, "2001:DB8:aa11:11aa:12:ad:ff:1:2/128")
+    lu.assertError(self.a.fromData, self.a, "2001:Dg8::1/128")
+    lu.assertError(self.a.fromData, self.a, "2001:DB812::1/128")
+  end
+-- class TestIPv6Prefix
+
 
 
 
