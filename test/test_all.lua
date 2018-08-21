@@ -9,5 +9,5 @@ require 'test_mud_find'
 local lu = require('luaunit')
 --lu.run('--pattern', 'testGetPath')
 --lu.run('--pattern', 'testIPTables')
-lu.run('--pattern', 'TestIPv4Prefix')
---lu.run()
+--lu.run('--pattern', 'TestIPv4Prefix')
+lu.run()
