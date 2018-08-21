@@ -352,12 +352,19 @@ container_mt = { __index = container }
     -- make a copy of the data, which we can use to track whether all
     -- elements have been processed
     local data_copy = util.deepcopy(json_data)
+    local dop = false
+    if self:getPath(true) == "mud-container/ietf-access-control-list:acls/acl[1]/ace[0]/ipv4" then dop = true end
+    if dop then print("[XX] trying that ipv4 one for " .. self:getName()) end
+    if dop then print(json.encode(json_data)) end
     for node_name, node in pairs(self.yang_nodes) do
+      if dop then print("[XX] try " .. node_name) end
       if json_data[node_name] ~= nil then
+        if dop then print("[XX] got that in data") end
         node:fromData(json_data[node_name])
         -- We need to set the parent again, since we may be dealing
         -- with an instanced list as our parent
         node:setParent(self)
+        if dop then print("[XX] remove " .. node_name .. " from data input copy") end
         data_copy[node_name] = nil
       elseif node:isMandatory() then
         --error('mandatory node ' .. node_name .. ' not found in: ' .. json.encode(json_data[node_name]))
@@ -365,9 +372,10 @@ container_mt = { __index = container }
       --else
       end
     end
+    if dop then print("[XX] done trying that ipv4 one") end
 
     if json.encode(data_copy) ~= "{}" then
-      error("Unhandled data: " .. json.encode(json_data))
+      error("Unhandled data in " .. self:getPath(true) .. ": " .. json.encode(json_data))
     end
   end
 

@@ -2,7 +2,7 @@
 -- Implementation of the command line interface as called by 'lua-mud(1)'
 --
 
-local lua_mud = require 'mud'
+local lua_mud = require 'mudv2'
 
 
 local mud_cli = {}
@@ -85,14 +85,16 @@ end
 -- external functions
 --
 function main(args)
+    print("hello, world")
     mudfile = parse_args(args)
-    
-    local mud, err = lua_mud.mud_create_from_file(mudfile)
-    if mud == nil then
-        print("Error: " .. err)
-    else
-        print_mud_summary(mud)
-    end
+    local mud = lua_mud.mud:create()
+    mud:parseFile(mudfile)
+    --local mud, err = lua_mud.mud_create_from_file(mudfile)
+    --if mud == nil then
+    --    print("Error: " .. err)
+    --else
+    --    print_mud_summary(mud)
+    --end
 end
 
 mud_cli.main = main

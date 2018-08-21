@@ -45,13 +45,12 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches_ipv4:add_node(yang.basic_types.uint16:create('offset', false))
     matches_ipv4:add_node(yang.basic_types.uint16:create('identification', false))
     -- TODO: -network
-    local ipv4_destination_network_choice = yang.basic_types.choice:create('destination-network', false, false)
-    -- this should be type ipv4-prefix
-    ipv4_destination_network_choice:set_named(true)
+    local ipv4_destination_network_choice = yang.basic_types.choice:create('destination-network', false, true)
+    ipv4_destination_network_choice:set_named(false)
     ipv4_destination_network_choice:add_choice('destination-ipv4-network', yang.complex_types.inet_ipv4_prefix:create('destination-ipv4-network'))
     matches_ipv4:add_node(ipv4_destination_network_choice, false)
     local ipv4_source_network_choice = yang.basic_types.choice:create('source-network', false, true)
-    ipv4_source_network_choice:set_named(true)
+    ipv4_source_network_choice:set_named(false)
     -- this should be type ipv4-prefix
     ipv4_source_network_choice:add_choice('source-ipv4-network', yang.complex_types.inet_ipv4_prefix:create('source-ipv4-network'))
     matches_ipv4:add_node(ipv4_source_network_choice, false)
@@ -69,12 +68,12 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches_ipv6:add_node(yang.basic_types.string:create('ietf-acldns:dst-dnsname', false))
     matches_ipv6:add_node(yang.basic_types.string:create('ietf-acldns:src-dnsname', false))
     -- TODO: -network
-    local ipv6_destination_network_choice = yang.basic_types.choice:create('destination-network', false, false)
-    ipv6_destination_network_choice:set_named(true)
+    local ipv6_destination_network_choice = yang.basic_types.choice:create('destination-network', false, true)
+    ipv6_destination_network_choice:set_named(false)
     ipv6_destination_network_choice:add_choice('destination-ipv6-network', yang.complex_types.inet_ipv6_prefix:create('destination-ipv6-network', false))
     matches_ipv6:add_node(ipv6_destination_network_choice)
-    local ipv6_source_network_choice = yang.basic_types.choice:create('source-network', false, false)
-    ipv6_source_network_choice:set_named(true)
+    local ipv6_source_network_choice = yang.basic_types.choice:create('source-network', false, true)
+    ipv6_source_network_choice:set_named(false)
     -- this should be type ipv6-prefix
     ipv6_source_network_choice:add_choice('source-ipv6-network', yang.complex_types.inet_ipv6_prefix:create('source-ipv6-network'))
     matches_ipv6:add_node(ipv6_source_network_choice, false)
