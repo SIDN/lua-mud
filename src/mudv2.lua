@@ -48,12 +48,13 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     -- TODO: -network
     local ipv4_destination_network_choice = yang.basic_types.choice:create('destination-network', false, true)
     ipv4_destination_network_choice:set_named(false)
-    ipv4_destination_network_choice:add_choice('destination-ipv4-network', yang.complex_types.inet_ipv4_prefix:create('destination-ipv4-network'))
+    local ipv4prefix = yang.complex_types.inet_ipv4_prefix:create('destination-ipv4-network')
+    ipv4_destination_network_choice:add_case('destination-ipv4-network', ipv4prefix)
     matches_ipv4:add_node(ipv4_destination_network_choice, false)
     local ipv4_source_network_choice = yang.basic_types.choice:create('source-network', false, true)
     ipv4_source_network_choice:set_named(false)
     -- this should be type ipv4-prefix
-    ipv4_source_network_choice:add_choice('source-ipv4-network', yang.complex_types.inet_ipv4_prefix:create('source-ipv4-network'))
+    ipv4_source_network_choice:add_case('source-ipv4-network', yang.complex_types.inet_ipv4_prefix:create('source-ipv4-network'))
     matches_ipv4:add_node(ipv4_source_network_choice, false)
 
     -- mud augmentation
@@ -71,12 +72,12 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     -- TODO: -network
     local ipv6_destination_network_choice = yang.basic_types.choice:create('destination-network', false, true)
     ipv6_destination_network_choice:set_named(false)
-    ipv6_destination_network_choice:add_choice('destination-ipv6-network', yang.complex_types.inet_ipv6_prefix:create('destination-ipv6-network', false))
+    ipv6_destination_network_choice:add_case('destination-ipv6-network', yang.complex_types.inet_ipv6_prefix:create('destination-ipv6-network', false))
     matches_ipv6:add_node(ipv6_destination_network_choice)
     local ipv6_source_network_choice = yang.basic_types.choice:create('source-network', false, true)
     ipv6_source_network_choice:set_named(false)
     -- this should be type ipv6-prefix
-    ipv6_source_network_choice:add_choice('source-ipv6-network', yang.complex_types.inet_ipv6_prefix:create('source-ipv6-network'))
+    ipv6_source_network_choice:add_case('source-ipv6-network', yang.complex_types.inet_ipv6_prefix:create('source-ipv6-network'))
     matches_ipv6:add_node(ipv6_source_network_choice, false)
     -- TODO: flow-label
 
@@ -137,15 +138,17 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
 
     matches_l1_choice:add_case('eth', matches_eth)
     matches_l3_choice:add_case('tcp', matches_tcp)
-    matches_l4_choice:add_case('udp', matches_tcp)
+    matches_l4_choice:add_case('udp', matches_udp)
     matches_l5_choice:add_case('ipv6', matches_ipv6)
     matches_l2_choice:add_case('ipv4', matches_ipv4)
-    
+
     matches:add_node(matches_l1_choice)
     matches:add_node(matches_l3_choice)
     matches:add_node(matches_l4_choice)
     matches:add_node(matches_l5_choice)
     matches:add_node(matches_l2_choice)
+    print("[XX] TODO: l2 now has " .. table.getn(matches_l2_choice.cases) .. " cases")
+
     ace_list:add_list_node(matches)
     aces:add_node(ace_list)
 
@@ -211,9 +214,6 @@ ietf_mud_type_mt = { __index = ietf_mud_type }
 
     -- it's a presence container, so we *replace* the base node list instead of adding to it
     self.yang_nodes = c.yang_nodes
-    for i,n in pairs(self.yang_nodes) do
-      n:setParent(self)
-    end
   end
 -- class ietf_mud_type
 

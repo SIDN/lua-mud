@@ -16,7 +16,7 @@ local YangNode_mt = { __index = YangNode }
     new_inst.value = nil
     new_inst.typeName = typeName
     new_inst.nodeName = nodeName
-    new_inst.parent = nil
+    new_inst.path = ""
     if mandatory ~= nil then
       new_inst.mandatory = mandatory
     else
@@ -97,30 +97,17 @@ local YangNode_mt = { __index = YangNode }
     return result
   end
 
-  function YangNode:getParent()
-    return self.parent
-  end
-
-  function YangNode:setParent(node)
-    self.parent = node
-  end
-
   -- set data_incomplete to true if the getPath() is called while fromData() has not finished yet
   -- (it might need to find a path for a value it was parsing, which then does not exist in the
   -- internal data structure yet. In that case, we use the max index when showing list paths if the
   -- item is not found)
   function YangNode:getPath(data_incomplete)
     -- TODO: make a specific one for list, it needs the index
-    if self:getParent() ~= nil and self:getParent():getType() == 'list' then
-      result = self:getParent():getPath(data_incomplete) .. "[" .. util.get_index_of(self:getParent():getValue(), self, data_incomplete) .. "]"
-      return result
-    else
-      if self:getParent() ~= nil then
-        return self:getParent():getPath(data_incomplete) .. "/" .. self:getName()
-      else
-        return self:getName()
-      end
-    end
+    return self.path
+  end
+
+  function YangNode:setPath(path)
+    self.path = path
   end
 _M.YangNode = YangNode
 
@@ -353,8 +340,19 @@ container_mt = { __index = container }
 
   function container:add_node(node_type_instance)
     if node_type_instance == nil then error("container:add_node() called with nil node_type_instance") end
-    node_type_instance:setParent(self)
     self.yang_nodes[node_type_instance:getName()] = node_type_instance
+    node_type_instance:setPath(self:getPath() .. "/" .. node_type_instance:getName() .. "CCC")
+  end
+
+  function container:setPath(new_path)
+    self.path = new_path
+    for name,node in pairs(self.yang_nodes) do
+      if node:isa(_M.choice) then
+        node:setPath(self.path .. "/" .. name .. "GGG")
+      else
+        node:setPath(self.path .. "/" .. name .. "(".. node:getType().."FFF)")
+      end
+    end
   end
 
   function container:fromData_noerror(data)
@@ -370,7 +368,6 @@ container_mt = { __index = container }
         for cname,cnode in pairs(data) do
           print("[XX] [CONTAINER] attempting choice node " .. node_name .. " with data " .. cname)
           if node:hasCase(cname) and node:fromData_noerror(cnode, cname) then
-            node:setParent(self)
             print("[XX] CONTAINER BUILD SET ANY_MATCH IN CHOICE RESULT")
             any_match = true
             break
@@ -381,7 +378,6 @@ container_mt = { __index = container }
       elseif data[node_name] ~= nil then
         print("[XX] CONTAINER] attempting 'normal' child " .. node_name)
         if node:fromData_noerror(data[node_name]) then
-          node:setParent(self)
           print("[XX] CONTAINER BUILD SET ANY_MATCH NORMALLY for " .. node_name)
           any_match = true
         end
@@ -408,18 +404,8 @@ container_mt = { __index = container }
       print("[XX] [CONTAINER] looking at node: " .. node_name)
       if dop then print("[XX] try " .. node_name .. " (" .. node:getName() .. ", " .. node:getType() .. ")") end
       if json_data[node_name] ~= nil then
-        if dop then print("[XX] got that in data") end
         r,err = pcall(node.fromData, node, json_data[node_name])
-        -- We need to set the parent again, since we may be dealing
-        -- with an instanced list as our parent
-        if r then
-          print("[XX] [CONTAINER] ok, got it, remove " .. node_name .. " from input data")
-          node:setParent(self)
-          if dop then print("[XX] remove " .. node_name .. " from data input copy") end
-          data_copy[node_name] = nil
-        else
-          print("[XX] [CONTAINER] nope on that one")
-        end
+        data_copy[node_name] = nil
       elseif node:isa(_M.choice) then
         -- for choice, we just try to parse it (it can be of any of the choice's forms)
 
@@ -567,11 +553,6 @@ container_mt = { __index = container }
   end
 _M.container = container
 
-local function list_get_path(node)
-    if node:getParent() == nil then error("PARENT NIL!!!") end
-    return node:getParent():getPath() .. "[" .. util.get_index_of(node:getParent():getValue(), node) .. "]"
-end
-
 -- we implement lists by making them lists of containers, with
 -- an interface that skips the container part (mostly)
 local list = util.subClass("list", _M.YangNode)
@@ -591,8 +572,17 @@ list_mt = { __index = list }
   -- for that. This is to define what those elements should look like
   function list:add_list_node(node_type_instance)
     self.entry_nodes[node_type_instance:getName()] = node_type_instance
-    node_type_instance:setParent(self)
-    --node_type_instance.getPath = list_get_path
+    node_type_instance:setPath(self:getPath() .. "/" .. self:getName() .. "[]")
+  end
+
+  function list:setPath(new_path)
+    self.path = new_path
+    for i,node in pairs(self.entry_nodes) do
+      node:setPath(self:getPath() .. "/" .. self:getName() .. "[]")
+    end
+    for i,node in pairs(self.value) do
+      node:setPath(self:getPath() .. "/" .. self:getName() .. "["..i.."]")
+    end
   end
 
   -- Create a new entry in the list, based on the specification
@@ -603,20 +593,9 @@ list_mt = { __index = list }
     local new_node = _M.container:create('list_entry')
     -- TODO: should this be a deep copy?
     new_node.yang_nodes = util.deepcopy(self.entry_nodes)
-    new_node:setParent(self)
-    new_node.parent = self
     --new_node.value = nil
-    -- make sure the parent of the nodes within 'list_entry' points to the list_entry
     table.insert(self.value, new_node)
-    for i,n in pairs(new_node.yang_nodes) do
-      n:setParent(new_node)
-    end
-
-    -- update the childs getPath so it adds the list index
-    --function new_node:getPath()
-    --  return self:getParent():getPath() .. "[" .. util.get_index_of(self:getParent():getValue(), self) .. "]"
-    --end
-    --new_node.getPath = list_get_path
+    new_node:setPath(self.path .. "[" .. table.getn(self.value) .. "]")
     return new_node
   end
   -- TODO: should we error on attempts to use getValue and setValue?
@@ -632,7 +611,6 @@ list_mt = { __index = list }
     for i,data_el in pairs(data) do
       local new_el = self:create_list_element()
       new_el:fromData(data_el)
-      new_el:setParent(self)
     end
   end
 
@@ -642,7 +620,6 @@ list_mt = { __index = list }
     for i,data_el in pairs(data) do
       local new_el = self:create_list_element()
       if new_el:fromData_noerror(data_el) then
-        new_el:setParent(self)
         any_match = true
       end
     end
@@ -698,7 +675,6 @@ function tablelength(T)
   return count
 end
 
-
 local choice = util.subClass("choice", _M.YangNode)
 choice_mt = { __index = choice }
 
@@ -714,16 +690,26 @@ choice_mt = { __index = choice }
   -- TODO: how to handle block of multiple statements in one case? Does this happen?
   function choice:add_case(caseName, caseNode)
     self.cases[caseName] = caseNode
-    caseNode:setParent(self)
+    caseNode:setPath(self.path .. "/" .. caseName .. "AAA")
+  end
+
+  function choice:getCaseCount()
+    local result = 0
+    for _,__ in pairs(self.cases) do
+      result = result + 1
+    end
+    return result
+  end
+
+  function choice:setPath(newpath)
+    self.path = newpath .. "EEE(i have ".. self:getCaseCount() .." cases)"
+    for name,node in pairs(self.cases) do
+      node:setPath(self.path .. "/" .. name .. "BBB")
+    end
   end
 
   -- TODO remove this
   function choice:set_named(is_named)
-  end
-
-  function choice:add_choice(name, node)
-    self.cases[name] = node
-    node:setParent(self)
   end
 
   function choice:getActiveCase()
@@ -731,18 +717,6 @@ choice_mt = { __index = choice }
       if c:hasValue() then
         return c
       end
-    end
-  end
-
-  function choice:getPath(data_incomplete)
-    local ac = self:getActiveCase()
-    if ac == nil then
-      return "NO ACTIVE CASE WHAT"
-    else
-      print("[XX] GET PARENT OF CHOICE " .. self:getName())
-      if data_incomplete then print("[XX] incomplete allowed") end
-      result = self.parent:getPath(data_incomplete) .. "/" .. self:getName() .. "/" .. ac:getName()
-      return result
     end
   end
 
@@ -881,7 +855,6 @@ _M.choice = choice
 
   function old_choiceadd_choice(name, node_type)
     self.choices[name] = node_type
-    node_type:setParent(self)
   end
 
 

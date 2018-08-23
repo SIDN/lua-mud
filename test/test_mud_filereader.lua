@@ -46,8 +46,8 @@ TestMudFileReader = {} --class
     self.a:parseFile("../examples/example_from_draft.json")
     print(json.encode(self.a.mud_container:toData()))
   end
-  
-  function TestMudFileReader:testoGetPath2()
+
+  function TestMudFileReader:testGetPath2()
     self.a:parseFile("../examples/example_from_draft.json")
     local paths = {}
     for i,n in pairs(self.a.mud_container:getAll()) do
@@ -55,46 +55,6 @@ TestMudFileReader = {} --class
       table.insert(paths, n:getPath(true))
     end
     local expected = {
-      "mud-container",
-      "mud-container/ietf-mud:mud",
-      "mud-container/ietf-mud:mud/to-device-policy",
-      "mud-container/ietf-mud:mud/to-device-policy/access-lists",
-      "mud-container/ietf-mud:mud/to-device-policy/access-lists/access-list",
-      "mud-container/ietf-mud:mud/to-device-policy/access-lists/access-list[1]",
-      "mud-container/ietf-mud:mud/to-device-policy/access-lists/access-list[1]/name",
-      "mud-container/ietf-mud:mud/from-device-policy",
-      "mud-container/ietf-mud:mud/from-device-policy/access-lists",
-      "mud-container/ietf-mud:mud/from-device-policy/access-lists/access-list",
-      "mud-container/ietf-mud:mud/from-device-policy/access-lists/access-list[1]",
-      "mud-container/ietf-mud:mud/from-device-policy/access-lists/access-list[1]/name",
-      "mud-container/ietf-mud:mud/last-update",
-      "mud-container/ietf-mud:mud/systeminfo",
-      "mud-container/ietf-mud:mud/cache-validity",
-      "mud-container/ietf-mud:mud/is-supported",
-      "mud-container/ietf-mud:mud/mud-url",
-      "mud-container/ietf-mud:mud/mud-version",
-      "mud-container/ietf-access-control-list:acls",
-      "mud-container/ietf-access-control-list:acls/acl",
-      "mud-container/ietf-access-control-list:acls/acl[1]",
-      "mud-container/ietf-access-control-list:acls/acl[1]/aces",
-      "mud-container/ietf-access-control-list:acls/acl[1]/aces/ace",
-      "mud-container/ietf-access-control-list:acls/acl[1]/aces/ace[1]",
-      "mud-container/ietf-access-control-list:acls/acl[1]/aces/ace[1]/matches",
-      "mud-container/ietf-access-control-list:acls/acl[1]/aces/ace[1]/name",
-      "mud-container/ietf-access-control-list:acls/acl[1]/aces/ace[1]/actions",
-      "mud-container/ietf-access-control-list:acls/acl[1]/aces/ace[1]/actions/forwarding",
-      "mud-container/ietf-access-control-list:acls/acl[1]/type",
-      "mud-container/ietf-access-control-list:acls/acl[1]/name",
-      "mud-container/ietf-access-control-list:acls/acl[2]",
-      "mud-container/ietf-access-control-list:acls/acl[2]/aces",
-      "mud-container/ietf-access-control-list:acls/acl[2]/aces/ace",
-      "mud-container/ietf-access-control-list:acls/acl[2]/aces/ace[1]",
-      "mud-container/ietf-access-control-list:acls/acl[2]/aces/ace[1]/matches",
-      "mud-container/ietf-access-control-list:acls/acl[2]/aces/ace[1]/name",
-      "mud-container/ietf-access-control-list:acls/acl[2]/aces/ace[1]/actions",
-      "mud-container/ietf-access-control-list:acls/acl[2]/aces/ace[1]/actions/forwarding",
-      "mud-container/ietf-access-control-list:acls/acl[2]/type",
-      "mud-container/ietf-access-control-list:acls/acl[2]/name"
     }
 
     lu.assertEquals(paths, expected)
