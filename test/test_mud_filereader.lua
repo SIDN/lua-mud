@@ -49,6 +49,17 @@ TestMudFileReader = {} --class
 
   function TestMudFileReader:testGetPath2()
     self.a:parseFile("../examples/example_from_draft.json")
+    lu.assertEquals(self.a.mud_container:getRootNode():getName(), "mud-container")
+    lu.assertEquals(self.a.mud_container.yang_nodes['ietf-mud:mud']:getRootNode():getName(), "mud-container")
+    lu.assertEquals(self.a.mud_container.yang_nodes['ietf-mud:mud'].yang_nodes['to-device-policy']:getRootNode():getName(), "mud-container")
+    local n = self.a.mud_container.yang_nodes['ietf-access-control-list:acls'].yang_nodes['acl'].value[2].yang_nodes["aces"].yang_nodes["ace"].value[1].yang_nodes['matches'].yang_nodes['l5'].cases['ipv6']
+    --local n = self.a.mud_container.yang_nodes['ietf-access-control-list:acls'].yang_nodes['acl'].value[2].yang_nodes["aces"].yang_nodes["ace"].value[1].yang_nodes['matches']
+    --error(n:getName() .. " (" .. n:getType() .. "): " .. json.encode(n:toData()))
+    lu.assertEquals(n:getPath(), "mud-container/ietf-access-control-list:acls/acl[2]/list_entry/aces/ace[1]/list_entry/matches/ipv6")
+  end
+
+  function TestMudFileReader:testGetPath3()
+    self.a:parseFile("../examples/example_from_draft.json")
     local paths = {}
     for i,n in pairs(self.a.mud_container:getAll()) do
       print("[XX] calling getpath[] " .. i)

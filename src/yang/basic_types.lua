@@ -106,7 +106,7 @@ local YangNode_mt = { __index = YangNode }
     return curNode
   end
 
-  function YangNode:setParent(parent)
+  function YangNode:setParent(parent, recurse)
     print("[XX] SETPARENT OF " .. self:getName() .. " TO " .. parent:getName())
     self.parent = parent
   end
@@ -115,6 +115,10 @@ local YangNode_mt = { __index = YangNode }
   -- parent; in some cases the result may differ depending on who's asking
   -- (like, say, list indices)
   function YangNode:getPath(requester)
+    print("[XX] GETPATH OF " .. self:getType() .. " " .. self:getName() .. " with data " .. json.encode(self:toData()))
+    if requester ~= nil then
+      print("[XX] GETPATH REQUESTED BY " .. requester:getName() .. " which has data " .. json.encode(requester:toData()))
+    end
     if self.parent ~= nil then
       return self.parent:getPath(self) .. "/" .. self:getName()
     else
@@ -357,6 +361,13 @@ container_mt = { __index = container }
     node_type_instance:setParent(self)
   end
 
+  function container:setParent(parent, recurse)
+    self.parent = parent
+    if recurse then
+      for i,n in pairs(self.yang_nodes) do n:setParent(self, recurse) end
+    end
+  end
+
   function container:fromData_noerror(data)
     if type(data) ~= 'table' then
       return false
@@ -376,6 +387,14 @@ container_mt = { __index = container }
           any_match = true
         end
       end
+    end
+    if any_match and self:getName() == "matches" then
+      print("[XX] NOT GETPATH BUT DATA OF " .. tostring(self) .. " NOW " .. json.encode(self:toData()))
+      print("[XX] NOT GETPATH BUT THAT MAKES MY PARENT HAVE " .. json.encode(self:getParent():toData()))
+      if self:getParent():getParent() ~= nil then
+        print("[XX] GETPATH GRANDPARENT IS OF TYPE " .. self:getParent():getParent():getType())
+      end
+      print("[XX] NOT GETPATH BUT THAT MAKES MY PARENT HAVE " .. json.encode(self:getParent():toData()))
     end
     return any_match
   end
@@ -499,6 +518,15 @@ list_mt = { __index = list }
   function list:add_list_node(node_type_instance)
     self.entry_nodes[node_type_instance:getName()] = node_type_instance
     node_type_instance:setParent(self)
+    print("[XX] MAYBE RELEVANT TOO FOR GETPATH BUT I JUST SET A PARENT TO " .. tostring(node_type_instance))
+  end
+
+  function list:setParent(parent, recurse)
+    self.parent = parent
+    if recurse then
+      for i,n in pairs(self.entry_nodes) do n:setParent(self, recurse) end
+      for i,n in pairs(self.value) do n:setParent(self, recurse) end
+    end
   end
 
   -- Create a new entry in the list, based on the specification
@@ -511,7 +539,7 @@ list_mt = { __index = list }
     new_node.yang_nodes = util.deepcopy(self.entry_nodes)
     --new_node.value = nil
     table.insert(self.value, new_node)
-    new_node:setParent(self)
+    new_node:setParent(self, true)
     for i,n in pairs(new_node.yang_nodes) do
       n:setParent(new_node)
     end
@@ -531,10 +559,13 @@ list_mt = { __index = list }
       local new_el = self:create_list_element()
       if new_el:fromData_noerror(data_el) then
         any_match = true
+        print("[XX] MAYBE RELEVANT FOR GETPATH BUT NEW ENTRY IS " .. tostring(new_el))
       end
     end
     print("[XX] [LIST] returning fromData_noerror " .. self:getName() .. " with value: " .. tostring(any_match))
-    if any_match then print("[XX] [LIST] data: " .. json.encode(self:toData())) end
+    if any_match then
+      print("[XX] [LIST] data: " .. json.encode(self:toData()))
+    end
     return any_match
   end
 
@@ -578,6 +609,10 @@ list_mt = { __index = list }
   end
 
   function list:getPath(requester)
+    print("[XX] GETPATH OF LIST " .. self:getName() .. " with data: " .. json.encode(self:toData()))
+    if requester ~= nil then
+      print("[XX] GETPATH REQUESTED BY " .. requester:getName() .. " which has data " .. json.encode(requester:toData()))
+    end
     local index_str = ""
     local parent_str = ""
     if self.parent ~= nil then
@@ -588,14 +623,6 @@ list_mt = { __index = list }
       for i,n in pairs(self.value) do
         if n == requester then
           index_str = "[" .. i .. "]"
-        end
-      end
-      if index_str == "[?]" then
-        print("[XX] [LIST] no entry for " .. requester:getName() .. " (" .. requester:getType() .. ", " .. tostring(requester) ..") found in " .. self:getPath())
-        print("[XX] [LIST] which is: " .. json.encode(requester:toData()))
-        for i,n in pairs(self.value) do
-          print("[XX] [LIST] I have: " .. tostring(n))
-          print("[XX] [LIST] which contains: " .. json.encode(n:toData()))
         end
       end
     end
@@ -628,6 +655,13 @@ choice_mt = { __index = choice }
     caseNode:setParent(self)
   end
 
+  function choice:setParent(parent, recurse)
+    self.parent = parent
+    if recurse then
+      for i,n in pairs(self.cases) do n:setParent(self, recurse) end
+    end
+  end
+
   function choice:getCaseCount()
     local result = 0
     for _,__ in pairs(self.cases) do
@@ -645,9 +679,14 @@ choice_mt = { __index = choice }
     return result
   end
 
-  function choice:getPath()
+  function choice:getPath(requester)
+    print("[XX] GETPATH OF CHOICE " .. self:getName() .. " " .. json.encode(self:toData()))
+    if requester ~= nil then
+      print("[XX] GETPATH REQUESTED BY " .. requester:getName() .. " which has data " .. json.encode(requester:toData()))
+    end
     -- the choice itself does not show up in the data
     if self.parent ~= nil then
+      print("[XX] passing GETPATH to parent " .. self.parent:getName() .. "(" ..  tostring(self.parent) .. ")")
       return self.parent:getPath(self)
     else
       return ""
