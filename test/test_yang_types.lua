@@ -448,7 +448,7 @@ TestChoice = {}
     a:clearData()
     --lu.assertEquals(a:hasValue(), false)
     lu.assertEquals(a:getActiveCase(), nil)
-    
+
   end
 
   function TestChoice:testContainerWithChoice()
@@ -468,12 +468,15 @@ TestChoice = {}
     cc:add_choice("l2", cc2c)
 
     c:add_node(cc)
-    
+
     local data_int = json.decode('{"my-container": { "choice-int": 4 } }')
     local data_bool = json.decode('{"my-container": { "choice-bool": false } }')
     c:fromData(data_int)
     c:fromData(data_bool)
     print(json.encode(c:toData()))
+  end
+
+  function TestChoice:temp()
   end
 
   function TestChoice:testChoiceInChoice()
@@ -484,27 +487,62 @@ TestChoice = {}
 
     cc1a:add_node(yang.basic_types.uint16:create('an-int'), false)
 
-    --local cc1bc = yang.basic_types.choice:create("my-second-choice", false)
-    --cc1bc:add_case('second-choice-integer', yang.basic_types.uint16:create('second-choice-int'))
-    --cc1bc:add_case('second-choice-boolean', yang.basic_types.boolean:create('second-choice-bool'))
-    --cc1b:add_node(cc1bc)
+    local cc1bc = yang.basic_types.choice:create("my-second-choice", false)
+    cc1bc:add_case('second-choice-integer', yang.basic_types.uint16:create('second-choice-int', false))
+    cc1bc:add_case('second-choice-boolean', yang.basic_types.boolean:create('second-choice-bool', false))
+    cc1b:add_node(cc1bc)
 
     cc1:add_case('first-choice', cc1a)
-    --cc1:add_case('second-choice', cc1b)
+    cc1:add_case('second-choice', cc1b)
     c:add_node(cc1)
 
-    --local data = json.decode('{"my-container": { "something_wrong": 4 } }')
-    --lu.assertError(c.fromData, c, data)
+    local data = {}
 
-    c:fromData_noerror(json.decode('{"my-first-choice": { "an-int": 4 } }'))
-    --c:fromData_noerror(json.decode('{ "an-int": 4 }'))
-    print("[XX] C DATA AFTER: " .. json.encode(c:toData()))
+    --lu.assertEquals(c:toData(), {})
 
-    --cc1a:fromData_noerror(json.decode('{ "an-int": 4 }'))
-    --print("[XX] CC1A DATA AFTER: " .. json.encode(cc1a:toData()))
+    data = json.decode('{"first-choice-container-one": { "an-int": 4 } }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), data)
 
-    --cc1:fromData_noerror(json.decode('{ "an-int": 4 }'))
-    --print("[XX] CC1 DATA AFTER: " .. json.encode(cc1:toData()))
+    c:clearData()
+    lu.assertEquals(c:toData(), {})
+
+    data = json.decode('{"first-choice-container-one": { "an-int": 4 } }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), data)
+
+    c:clearData()
+    lu.assertEquals(c:toData(), {})
+
+    data = json.decode('{"something-completely-different": { "foobar": "aaa" } }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), {})
+
+    data = json.decode('{"something-completely-different": { "foobar": 1 } }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), {})
+
+    data = json.decode('{"first-choice-container-one": { "foobar": 1 } }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), {})
+
+    -- (note the first-choice container is the wrong one)
+    data = json.decode('{"first-choice-container-one": { "second-choice-bool": true } }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), {})
+
+    data = json.decode('{"first-choice-container-two": { "second-choice-bool": true } }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), data)
+
+    data = json.decode('{"first-choice-container-two": { "second-choice-int": 1 } }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), data)
+
+    c:clearData()
+    data = json.decode('{"first-choice-container-two": { "second-choice-int": "foo" } }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), {})
   end
 -- class TestChoice
 

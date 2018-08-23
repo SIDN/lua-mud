@@ -368,7 +368,8 @@ container_mt = { __index = container }
       -- special case for choices
       if node:isa(_M.choice) then
         for cname,cnode in pairs(data) do
-          if node:fromData_noerror(cnode) then
+          print("[XX] [CONTAINER] attempting choice node " .. node_name .. " with data " .. cname)
+          if node:hasCase(cname) and node:fromData_noerror(cnode, cname) then
             node:setParent(self)
             print("[XX] CONTAINER BUILD SET ANY_MATCH IN CHOICE RESULT")
             any_match = true
@@ -378,6 +379,7 @@ container_mt = { __index = container }
           end
         end
       elseif data[node_name] ~= nil then
+        print("[XX] CONTAINER] attempting 'normal' child " .. node_name)
         if node:fromData_noerror(data[node_name]) then
           node:setParent(self)
           print("[XX] CONTAINER BUILD SET ANY_MATCH NORMALLY for " .. node_name)
@@ -745,7 +747,10 @@ choice_mt = { __index = choice }
   end
 
   function choice:clearData()
-    self:getActiveCase():clearData()
+    local active_case = self:getActiveCase()
+    if active_case ~= nil then
+      self:getActiveCase():clearData()
+    end
   end
 
   function choice:toData()
@@ -773,7 +778,18 @@ choice_mt = { __index = choice }
     return false
   end
 
-  function choice:fromData_noerror(data)
+  function choice:hasCase(case_name)
+    print("[XX] [CHOICE] hasCase called with val " .. case_name)
+    for i,n in pairs(self.cases) do
+      print("[XX] [CHOICE] trying case " .. n:getName())
+      if n:getName() == case_name then return true end
+    end
+    return false
+  end
+
+  -- if choice_name is not nil, it is checked against the cases
+  -- if it is nil, any case with a matching dataset succeeds
+  function choice:fromData_noerror(data, choice_name)
     print("[XX] [CHOICE] fromData_noerror called on " ..self:getName().. " with data " .. json.encode(data))
     -- can we do this better? right now we copy, and clear them, then put them back
     -- the reason for this is 1: no changes if it fails, 2. to keep track of whether one
@@ -786,8 +802,10 @@ choice_mt = { __index = choice }
         print("[XX] [CHOICE] trying option " .. c:getName() .. " (" .. c:getType() .. ")")
         print("[XX] [CHOICE] with data: " .. json.encode(data))
         if c:fromData_noerror(data) then
-          found = true
-          print("[XX] [CHOICE] found it: " .. json.encode(c:toData()))
+          if choice_name == nil or choice_name == c:getName() then
+            found = true
+            print("[XX] [CHOICE] found it in " .. c:getName() .. ": " .. json.encode(c:toData()))
+          end
         end
       end
     end
