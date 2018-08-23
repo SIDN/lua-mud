@@ -25,7 +25,8 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     local aces = yang.basic_types.container:create('aces')
     local ace_list = yang.basic_types.list:create('ace')
     ace_list:add_list_node(yang.basic_types.string:create('name'))
-    local matches = yang.basic_types.choice:create('matches')
+    --local matches = yang.basic_types.choice:create('matches')
+    local matches = yang.basic_types.container:create('matches')
 
     local matches_eth = yang.basic_types.container:create('eth')
     matches_eth:add_node(yang.basic_types.mac_address:create('destination-mac-address'))
@@ -85,22 +86,39 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches_tcp:add_node(yang.basic_types.uint8:create('offset', false))
     matches_tcp:add_node(yang.basic_types.uint8:create('reserved', false))
 
-    local source_port_choice = yang.basic_types.choice:create('source-port', false, true)
-    -- todo: full implementation of pf:port-range-or-operator
-    local choice_operator = yang.basic_types.container:create('choice-operator')
-    choice_operator:add_node(yang.basic_types.string:create('operator'))
-    choice_operator:add_node(yang.basic_types.uint16:create('port'))
-    source_port_choice:add_choice('operator', choice_operator)
-    matches_tcp:add_node(source_port_choice)
+    -- new choice realization
+    -- todo: is this mandatory?
+    local source_port = yang.basic_types.container:create('source-port', false)
+    local source_port_choice = yang.basic_types.choice:create('source-port', false)
 
-    local destination_port_choice = yang.basic_types.choice:create('destination-port', false, true)
-    -- todo: full implementation of pf:port-range-or-operator
-    local choice_operator = yang.basic_types.container:create('choice-operator')
-    choice_operator:add_node(yang.basic_types.string:create('operator'))
-    choice_operator:add_node(yang.basic_types.uint16:create('port'))
-    --choice_operator:makePresenceContainer()
-    destination_port_choice:add_choice('operator2', choice_operator)
-    matches_tcp:add_node(destination_port_choice)
+    local source_port_range = yang.basic_types.container:create('port-range', false)
+    source_port_range:add_node(yang.basic_types.uint16:create('lower-port'))
+    source_port_range:add_node(yang.basic_types.uint16:create('upper-port'))
+    source_port_choice:add_case('range', source_port_range)
+
+    local source_port_operator = yang.basic_types.container:create('port-operator', false)
+    source_port_operator:add_node(yang.basic_types.string:create('operator', false))
+    source_port_operator:add_node(yang.basic_types.uint16:create('port'))
+    source_port_choice:add_case('operator', source_port_operator)
+
+    source_port:add_node(source_port_choice)
+    matches_tcp:add_node(source_port)
+
+    local destination_port = yang.basic_types.container:create('destination-port', false)
+    local destination_port_choice = yang.basic_types.choice:create('destination-port', false)
+
+    local destination_port_range = yang.basic_types.container:create('port-range', false)
+    destination_port_range:add_node(yang.basic_types.uint16:create('lower-port'))
+    destination_port_range:add_node(yang.basic_types.uint16:create('upper-port'))
+    destination_port_choice:add_case('range', destination_port_range)
+
+    local destination_port_operator = yang.basic_types.container:create('port-operator', false)
+    destination_port_operator:add_node(yang.basic_types.string:create('operator', false))
+    destination_port_operator:add_node(yang.basic_types.uint16:create('port'))
+    destination_port_choice:add_case('operator', destination_port_operator)
+
+    destination_port:add_node(destination_port_choice)
+    matches_tcp:add_node(destination_port)
 
     -- this is an augmentation from draft-mud
     -- TODO: type 'direction' (enum?)
@@ -111,12 +129,23 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches_udp:add_node(yang.util.deepcopy(source_port_choice))
     matches_udp:add_node(yang.util.deepcopy(destination_port_choice))
 
-    matches:set_named(true)
-    matches:add_choice('eth', matches_eth)
-    matches:add_choice('ipv4', matches_ipv4)
-    matches:add_choice('tcp', matches_tcp)
-    matches:add_choice('udp', matches_tcp)
-    matches:add_choice('ipv6', matches_ipv6)
+    local matches_l1_choice = yang.basic_types.choice:create('l1', false)
+    local matches_l2_choice = yang.basic_types.choice:create('l2', false)
+    local matches_l3_choice = yang.basic_types.choice:create('l3', false)
+    local matches_l4_choice = yang.basic_types.choice:create('l4', false)
+    local matches_l5_choice = yang.basic_types.choice:create('l5', false)
+
+    matches_l1_choice:add_case('eth', matches_eth)
+    matches_l3_choice:add_case('tcp', matches_tcp)
+    matches_l4_choice:add_case('udp', matches_tcp)
+    matches_l5_choice:add_case('ipv6', matches_ipv6)
+    matches_l2_choice:add_case('ipv4', matches_ipv4)
+    
+    matches:add_node(matches_l1_choice)
+    matches:add_node(matches_l3_choice)
+    matches:add_node(matches_l4_choice)
+    matches:add_node(matches_l5_choice)
+    matches:add_node(matches_l2_choice)
     ace_list:add_list_node(matches)
     aces:add_node(ace_list)
 
@@ -226,7 +255,7 @@ function aceToRules(ace_node)
         local v6_or_v4 = nil
         local direction = nil
         local rulematches = ""
-        for i,match in pairs(ace:getNode('matches'):getChoices()) do
+        for i,match in pairs(ace:getNode('matches').yang_nodes) do
             if match:getName() == 'ipv4' then
                 v6_or_v4 = "ip "
                 for j,match_node in pairs(match.yang_nodes) do
@@ -344,11 +373,12 @@ function replaceDNSNameNode(new_nodes, node, family_str, dnsname_str, network_so
       local nn = yang.util.deepcopy(node)
       nd[family_str][dnsname_str] = nil
       -- add new rule here ((TODO))
-      nd[family_str][network_source_or_dest] = {}
+      --nd[family_str][network_source_or_dest] = {}
       if family_str == 'ipv6' then
-        nd[family_str][network_source_or_dest][network_source_or_dest_v] = a .. "/128"
+        --nd[family_str][network_source_or_dest][network_source_or_dest_v] = a .. "/128"
+        nd[family_str][network_source_or_dest_v] = a .. "/128"
       else
-        nd[family_str][network_source_or_dest][network_source_or_dest_v] = a .. "/32"
+        nd[family_str][network_source_or_dest_v] = a .. "/32"
       end
       --nn:fromData(nd)
       nn:clearData()

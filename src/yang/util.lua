@@ -2,6 +2,26 @@ local json = require("json")
 
 local _M = {}
 
+local function tdump (tbl, indent)
+  if not indent then indent = 0 end
+  for k, v in pairs(tbl) do
+    if k ~= 'parent' then
+      formatting = string.rep("  ", indent) .. k .. ": "
+      if type(v) == "table" then
+        print(formatting)
+        tdump(v, indent+1)
+      elseif type(v) == 'boolean' then
+        print(formatting .. tostring(v))
+      elseif type(v) == 'function' then
+        print(formatting .. "<function>")
+      else
+        print(formatting .. v)
+      end
+    end
+  end
+end
+_M.tdump = tdump
+
 -- extend t1 with all the elements of t2
 function _M.table_extend(t1, t2)
   for i,v in pairs(t2) do
@@ -75,6 +95,8 @@ function _M.get_index_of(list, element, max_list_if_not_found)
   if max_list_if_not_found then
     return table.getn(list)
   else
+    print("[XX] ELEMENT NOT FOUND IN LIST: " .. json.encode(element:toData()))
+    --tdump(element)
     error('element not found in list')
   end
 end
@@ -98,24 +120,6 @@ function get_path_list_index(path)
     end
   end
 end
-
-local function tdump (tbl, indent)
-  if not indent then indent = 0 end
-  for k, v in pairs(tbl) do
-    formatting = string.rep("  ", indent) .. k .. ": "
-    if type(v) == "table" then
-      print(formatting)
-      tdump(v, indent+1)
-    elseif type(v) == 'boolean' then
-      print(formatting .. tostring(v))
-    elseif type(v) == 'function' then
-      print(formatting .. "<function>")
-    else
-      print(formatting .. v)
-    end
-  end
-end
-_M.tdump = tdump
 
 -- Based on http://lua-users.org/wiki/InheritanceTutorial
 -- Defining a class with inheritsFrom instead of just {} will

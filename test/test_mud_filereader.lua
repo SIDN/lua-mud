@@ -44,9 +44,15 @@ TestMudFileReader = {} --class
 
   function TestMudFileReader:testGetPath()
     self.a:parseFile("../examples/example_from_draft.json")
+    print(json.encode(self.a.mud_container:toData()))
+  end
+  
+  function TestMudFileReader:testoGetPath2()
+    self.a:parseFile("../examples/example_from_draft.json")
     local paths = {}
     for i,n in pairs(self.a.mud_container:getAll()) do
-      table.insert(paths, n:getPath())
+      print("[XX] calling getpath[] " .. i)
+      table.insert(paths, n:getPath(true))
     end
     local expected = {
       "mud-container",
