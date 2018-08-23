@@ -72,6 +72,7 @@ local YangNode_mt = { __index = YangNode }
     print("[XX] [BASETYPE] fromData_noerror called on " ..self:getName().. " with data " .. json.encode(data))
     r,err = pcall(self.setValue, self, data)
     print("[XX] [BASETYPE] returning fromData_noerror " .. self:getName() .. " with value: " .. tostring(r))
+    if r then print("[XX] [BASETYPE] data: " .. json.encode(self:toData())) end
     return r
   end
 
@@ -385,6 +386,7 @@ container_mt = { __index = container }
       end
     end
     print("[XX] [CONTAINER] returning fromData_noerror " .. self:getName() .. " with value: " .. tostring(any_match))
+    if any_match then print("[XX] [CONTAINER] data: " .. json.encode(self:toData())) end
     return any_match
   end
 
@@ -393,7 +395,7 @@ container_mt = { __index = container }
     -- elements have been processed
     print("[XX] [CONTAINER] fromData() called on " .. self:getName())
     print("[XX] [CONTAINER] with data: " .. json.encode(json_data))
-    
+
     local data_copy = util.deepcopy(json_data)
     local dop = false
     if self:getPath(true) == "mud-container/ietf-access-control-list:acls/acl[1]/ace[0]/ipv4" then dop = true end
@@ -467,7 +469,7 @@ container_mt = { __index = container }
   end
 
   function container:hasValue()
-    
+
     for i,node in pairs(self.yang_nodes) do
       if node:hasValue() then
         print("[XX] [CONTAINER] hasValue() called on " .. self:getName() .. ": true")
@@ -643,6 +645,7 @@ list_mt = { __index = list }
       end
     end
     print("[XX] [LIST] returning fromData_noerror " .. self:getName() .. " with value: " .. tostring(any_match))
+    if any_match then print("[XX] [LIST] data: " .. json.encode(self:toData())) end
     return any_match
   end
 
@@ -784,10 +787,15 @@ choice_mt = { __index = choice }
         print("[XX] [CHOICE] with data: " .. json.encode(data))
         if c:fromData_noerror(data) then
           found = true
+          print("[XX] [CHOICE] found it: " .. json.encode(c:toData()))
         end
       end
     end
     print("[XX] [CHOICE] returning fromData_noerror " .. self:getName() .. " with value: " .. tostring(found))
+    if found then
+      print("[XX] [CHOICE] data: " .. json.encode(self:toData()))
+      self.cases = cases_copy
+    end
     return found
   end
 
