@@ -52,7 +52,7 @@ TestMudFileReader = {} --class
     local paths = {}
     for i,n in pairs(self.a.mud_container:getAll()) do
       print("[XX] calling getpath[] " .. i)
-      table.insert(paths, n:getPath(true))
+      table.insert(paths, n:getPath())
     end
     local expected = {
     }

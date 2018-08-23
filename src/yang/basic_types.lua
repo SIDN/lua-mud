@@ -57,16 +57,6 @@ local YangNode_mt = { __index = YangNode }
     return self.mandatory
   end
 
-  -- note: this 'json_data' is already read with json.decode()!
-  -- (so it is not, in fact, json data)
-  -- maybe make it 'fromData' or 'fromBasicData' or something?
-  -- what does one call data comprising only basic language types
-  function YangNode:fromData(json_data)
-    -- for basic types, we simply use setValue (which contains the correct checks)
-    -- complex types should override this method
-    self:setValue(json_data)
-  end
-
   -- tries to set data. returns true if success, fail if not
   function YangNode:fromData_noerror(data)
     print("[XX] [BASETYPE] fromData_noerror called on " ..self:getName().. " with data " .. json.encode(data))
@@ -101,7 +91,23 @@ local YangNode_mt = { __index = YangNode }
     return self.parent
   end
 
+  function YangNode:getRootNode()
+    local curNode = self
+    print("[XX] LOOKING FOR ROOT NODE OF " .. curNode:getName() .. " (" .. tostring(curNode))
+    while curNode:getParent() ~= nil do
+      print("[XX] LOOKING FOR ROOT NODE2 OF " .. curNode:getName() .. " (" .. tostring(curNode))
+      curNode = curNode:getParent()
+      print("[XX] LOOKING FOR ROOT NODE2.2 OF " .. curNode:getName() .. " (" .. tostring(curNode))
+      if (curNode:getParent() == nil) then
+        print("[XX] LOOKING BUT " .. curNode:getName() .. " has no parent" .. " (" .. tostring(curNode))
+      end
+    end
+      print("[XX] LOOKING FOR ROOT NODE3 OF " .. curNode:getName() .. " (" .. tostring(curNode))
+    return curNode
+  end
+
   function YangNode:setParent(parent)
+    print("[XX] SETPARENT OF " .. self:getName() .. " TO " .. parent:getName())
     self.parent = parent
   end
 
@@ -347,98 +353,31 @@ container_mt = { __index = container }
   function container:add_node(node_type_instance)
     if node_type_instance == nil then error("container:add_node() called with nil node_type_instance") end
     self.yang_nodes[node_type_instance:getName()] = node_type_instance
+    print("[XX] [CONTAINER] [SETPARENT] of " ..node_type_instance:getName() .. " TO " .. self:getName())
     node_type_instance:setParent(self)
   end
 
   function container:fromData_noerror(data)
     if type(data) ~= 'table' then
-      print("[XX] [CONTAINER] fromData_noerror called with wrong type on " ..self:getName().. " with data " .. json.encode(data))
       return false
     end
-    print("[XX] [CONTAINER] fromData_noerror called on " ..self:getName().. " with data " .. json.encode(data))
     local any_match = false
     for node_name, node in pairs(self.yang_nodes) do
       -- special case for choices
       if node:isa(_M.choice) then
         for cname,cnode in pairs(data) do
-          print("[XX] [CONTAINER] attempting choice node " .. node_name .. " with data " .. cname)
           if node:hasCase(cname) and node:fromData_noerror(cnode, cname) then
-            print("[XX] CONTAINER BUILD SET ANY_MATCH IN CHOICE RESULT")
             any_match = true
             break
-          else
-            print("[XX] CONTAINER BUILD NO LUCK FOR " .. cname)
           end
         end
       elseif data[node_name] ~= nil then
-        print("[XX] CONTAINER] attempting 'normal' child " .. node_name)
         if node:fromData_noerror(data[node_name]) then
-          print("[XX] CONTAINER BUILD SET ANY_MATCH NORMALLY for " .. node_name)
           any_match = true
         end
       end
     end
-    print("[XX] [CONTAINER] returning fromData_noerror " .. self:getName() .. " with value: " .. tostring(any_match))
-    if any_match then print("[XX] [CONTAINER] data: " .. json.encode(self:toData())) end
     return any_match
-  end
-
-  function container:fromData(json_data, check_all_data_used)
-    -- make a copy of the data, which we can use to track whether all
-    -- elements have been processed
-    print("[XX] [CONTAINER] fromData() called on " .. self:getName())
-    print("[XX] [CONTAINER] with data: " .. json.encode(json_data))
-
-    local data_copy = util.deepcopy(json_data)
-    local dop = false
-    for node_name, node in pairs(self.yang_nodes) do
-      print("[XX] [CONTAINER] looking at node: " .. node_name)
-      if dop then print("[XX] try " .. node_name .. " (" .. node:getName() .. ", " .. node:getType() .. ")") end
-      if json_data[node_name] ~= nil then
-        r,err = pcall(node.fromData, node, json_data[node_name])
-        data_copy[node_name] = nil
-      elseif node:isa(_M.choice) then
-        -- for choice, we just try to parse it (it can be of any of the choice's forms)
-
-
---        print("[Xx] try topthing")
---        status, err = pcall(node.fromData, node, json_data)
---        if status then
---          data_copy[node_name] = nil
---        else
---          print("[Xx] try subthing")
---          status, err = pcall(node.fromData, node, json_data[node:getName()])
---          if status then
---            data_copy[node_name] = nil
---          end
---        end
-        -- we need to pass over each child of the data to see if it matches the choice
-        for cname,cnode in pairs(json_data) do
-          print("[XX] TRY " .. cname .. " FOR choice node " .. node:getName())
-          print("[XX] ON NODE: " .. node:getName())
-          print("[XX] WITH data: " .. json.encode(cnode))
-          r,v = pcall(node.fromData, node, cnode)
-          if node:hasValue() then
-            print("[XX] Choice ate the data for '" .. cname .. "': '" .. json.encode(data_copy[cname]) .. "'")
-            print("[XX] node data became: " .. json.encode(node:toData()))
-            data_copy[cname] = nil
-            break
-          else
-            print("[XX] ok, that one was not it.")
-          end
-        end
-      elseif node:isMandatory() then
-        --error('mandatory node ' .. node_name .. ' not found in: ' .. json.encode(json_data[node_name]))
-        error('mandatory node ' .. node_name .. ' not found in: ' .. json.encode(json_data))
-      --else
-      end
-    end
-    if dop then print("[XX] done trying that ipv4 one") end
-
-    if json.encode(data_copy) ~= "{}" then
-      print("[XX] ERROR. Data that WAS read: " .. json.encode(self:toData()))
-      error("Unhandled data in " .. self:getPath(true) .. ": " .. json.encode(data_copy))
-    end
   end
 
   function container:clearData()
@@ -448,7 +387,6 @@ container_mt = { __index = container }
   end
 
   function container:hasValue()
-
     for i,node in pairs(self.yang_nodes) do
       if node:hasValue() then
         print("[XX] [CONTAINER] hasValue() called on " .. self:getName() .. ": true")
@@ -469,9 +407,6 @@ container_mt = { __index = container }
       if value:isa(_M.choice) then
         if value:getActiveCase() ~= nil then
           actual_name = value:getActiveCase():getName()
-          if actual_name == "ipv4" then
-            error(self:getPath())
-          end
           v = value:toData()
         else
           v = nil
@@ -486,8 +421,6 @@ container_mt = { __index = container }
     end
     return result
   end
-
-
 
   function container:getNodeNames()
     local result = {}
@@ -591,15 +524,6 @@ list_mt = { __index = list }
     return table.getn(self.value) > 0
   end
 
-  -- Fill the list with the given raw data
-  function list:fromData(data)
-    -- TODO: should we empty our local data to be sure at this point?
-    for i,data_el in pairs(data) do
-      local new_el = self:create_list_element()
-      new_el:fromData(data_el)
-    end
-  end
-
   function list:fromData_noerror(data)
     print("[XX] [LIST] fromData_noerror called on " ..self:getName().. " with data " .. json.encode(data))
     local any_match = false
@@ -652,6 +576,31 @@ list_mt = { __index = list }
     end
     return result
   end
+
+  function list:getPath(requester)
+    local index_str = ""
+    local parent_str = ""
+    if self.parent ~= nil then
+      parent_str = self.parent:getPath(self) .. "/"
+    end
+    if requester ~= nil then
+      index_str = "[?]"
+      for i,n in pairs(self.value) do
+        if n == requester then
+          index_str = "[" .. i .. "]"
+        end
+      end
+      if index_str == "[?]" then
+        print("[XX] [LIST] no entry for " .. requester:getName() .. " (" .. requester:getType() .. ", " .. tostring(requester) ..") found in " .. self:getPath())
+        print("[XX] [LIST] which is: " .. json.encode(requester:toData()))
+        for i,n in pairs(self.value) do
+          print("[XX] [LIST] I have: " .. tostring(n))
+          print("[XX] [LIST] which contains: " .. json.encode(n:toData()))
+        end
+      end
+    end
+    return parent_str .. self:getName() .. index_str
+  end
 _M.list = list
 
 -- TODO: remove
@@ -699,7 +648,7 @@ choice_mt = { __index = choice }
   function choice:getPath()
     -- the choice itself does not show up in the data
     if self.parent ~= nil then
-      return self.parent:getPath()
+      return self.parent:getPath(self)
     else
       return ""
     end
@@ -733,7 +682,7 @@ choice_mt = { __index = choice }
   -- Returns true if a value has been set
   function choice:setValue(value)
     for case_name,case in pairs(self.cases) do
-      print("[XX] try choice: " .. self:getPath(true) .. " with data: " .. json.encode(value))
+      print("[XX] try choice: " .. self:getPath() .. " with data: " .. json.encode(value))
     end
     error("No valid choice found for choice " .. self:getName())
   end
@@ -790,177 +739,7 @@ choice_mt = { __index = choice }
     end
     return found
   end
-
-  function choice:fromData(data)
-    if data == nil then error("fromData called with nil data") end
-    -- can we do this better? right now we copy, and clear them, then put them back
-    -- the reason for this is 1: no changes if it fails, 2. to keep track of whether one
-    -- succeeded and 3. reset the other cases if one succeeds
-    local cases_copy = util.deepcopy(self.cases)
-    local found = false
-    for n,c in pairs(cases_copy) do
-      c:clearData()
-      if not found then
-        print("[XX] [CHOICE] trying option " .. c:getName() .. " (" .. c:getType() .. ")")
-        print("[XX] [CHOICE] with data: " .. json.encode(data))
-        pcall(c.fromData, c, data)
-        if c:hasValue() then
-          print("[XX] [CHOICE] found (a)!")
-          found = true
-        else
-          print("[XX] [CHOICE] not the one (a)")
-        end
-      end
-    end
-    print("[XX] [CHOICE] loop done")
-
-    if found then
-      print("[XX] [CHOICE] found (b)!")
-      self.cases = cases_copy
-      for i,c in pairs(self.cases) do
-        c:setParent(self)
-      end
-    else
-      print("[XX] [CHOICE] no matching cases (b)")
-    end
-  end
-
   --function choice:
 _M.choice = choice
-
--- TODO: can we derive from the definition whether we need to 'remove' the intermediate step?
--- choice is a type where one or more of the defined choices can be used
---local choice = util.subClass("choice", _M.YangNode)
---choice_mt = { __index = choice }
-  -- if singlechoice is true, it effectively removes the
-  -- named choice indirection (the choice data shows up directly as
-  -- a child of the choice node, not under the name of the choice)
-  function old_choicecreate(nodeName, mandatory, singlechoice)
-    local new_inst = _M.YangNode:create("choice", nodeName, mandatory)
-    setmetatable(new_inst, choice_mt)
-    new_inst.choices = {}
-    new_inst.singleChoice = singlechoice
-    -- value is a table of entries, each of which should conform to
-    -- the specification of entry_nodes
-    new_inst.is_named = false
-    return new_inst
-  end
-
-  -- set this value to 'true' if the choice is determined by a named option
-  function old_choiceset_named(is_named_choice)
-    self.is_named = is_named_choice
-  end
-
---  function old_choicesetValue(value)
---    -- do we need this?
---    error("Got setValue for: " .. json.encode(value))
---  end
-
-  function old_choiceadd_choice(name, node_type)
-    self.choices[name] = node_type
-  end
-
-
-
--- hmm, do we need to differentiate name-based choice and content-based choice?
--- need to consult the YANG rfc.
--- nope. this is all wrong.
-  function old_choicefromData(data)
-    print("[XX] CHOICE FROMDATA!: " .. self:getName())
-    local found = false
-    for data_name, data_data in pairs(data) do
-      print("[XX] Choice working on '"..data_name.."' with data '" .. json.encode(data_data) .. "'")
-      if self.is_named or true then
-        for name,node_type in pairs(self.choices) do
-          if name == data_name then
-            local status, err = pcall(node_type.fromData, node_type, data_data)
-            if status then found = true
-            else
-              print("[XX] misold_choice " .. err)
-            end
-          end
-          -- todo: improve error
-        end
-      end
-      -- fallback (can we remove the above and only use this?
-      if not found then
-        for name,node_type in pairs(self.choices) do
-          print("[XX] TRY CHOICE " .. name .. " for data '"..json.encode(data).."'")
-          local status,err = pcall(node_type.fromData, node_type, data)
-          if status then
-            print("[XX] success! found.")
-            found = true
-          else
-            print("[XX] nope, bad old_choice " .. err)
-          end
-        end
-        if not found then
-          local allowed_choice = ""
-          for name,_ in pairs(self.choices) do
-            allowed_choice = allowed_choice .. ", '" .. name .. "'"
-          end
-          print("Unknown choice value: '" .. data_name .. "' in '" .. self:getPath(true) .."', choices are: " .. allowed_choice)
-          error("Unknown choice value: '" .. data_name .. "' in '" .. self:getPath(true) .."', choices are: " .. allowed_choice)
-        end
-      end
-    end
-    print("[XX] END CHOICE FROMDATA")
-  end
-
-  function old_choiceclearData()
-    for n,node in pairs(self.choices) do
-      node:clearData()
-    end
-  end
-
-  function old_choicetoData(data)
-    local result = {}
-    for name,node in pairs(self.choices) do
-      -- TODO: do we need a hasValue() check for all types?
-      --if node:getValue() ~= nil then
-      local v = node:toData()
-      if v ~= nil and (type(v) ~= 'table' or tablelength(v) > 0) then
-        result[name] = node:toData()
-      end
-      -- TODO this seems wrong
-      if self.singleChoice then
-        for n,v in pairs(result) do
-          return v
-        end
-      end
-    end
-    return result
-  end
-
-  function old_choicehasValue()
-    for name,node in pairs(self.choices) do
-      if node:hasValue() then return true end
-    end
-    return false
-  end
-
-  -- returns the first non-empty choice
-  function old_choicegetChoice()
-    for name,node in pairs(self.choices) do
-      if node:hasValue() then return node end
-    end
-    error('no choice set')
-  end
-
-
-  -- return all the choice nodes that were set
-  function old_choicegetChoices()
-    local result = {}
-    for name,node in pairs(self.choices) do
-      -- TODO: yeah we really need a hasValue() check
-      local v = node:toData()
-      if v ~= nil and (type(v) ~= 'table' or tablelength(v) > 0) then
-        table.insert(result, node)
-      end
-    end
-    return result
-  end
-_M.choice = choice
-
 
 return _M

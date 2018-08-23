@@ -186,7 +186,7 @@ function _M.deepcopy(orig)
         copy = {}
         for orig_key, orig_value in next, orig, nil do
             if orig_key == 'parent' then
-              -- don't deepcopy upwards references
+              -- don't deepcopy upwards references, only copy the reference
               copy[orig_key] = orig_value
             else
               copy[_M.deepcopy(orig_key)] = _M.deepcopy(orig_value)

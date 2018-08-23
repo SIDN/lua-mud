@@ -211,26 +211,15 @@ ietf_mud_type_mt = { __index = ietf_mud_type }
     -- this seems to be a difference between the example and the definition
     to_device_policy:add_node(access_lists)
     c:add_node(to_device_policy)
+    print("[XX] NOT LOOKING BUT TO_DEVICE_POLICY HAS PARENT " .. tostring(self))
 
     -- it's a presence container, so we *replace* the base node list instead of adding to it
     self.yang_nodes = c.yang_nodes
+    for i,n in pairs(self.yang_nodes) do
+      n:setParent(self)
+    end
   end
 -- class ietf_mud_type
-
---local function tdump (tbl, indent)
---  if not indent then indent = 0 end
---  for k, v in pairs(tbl) do
---    formatting = string.rep("  ", indent) .. k .. ": "
---    if type(v) == "table" then
---      print(formatting)
---      tdump(v, indent+1)
---    elseif type(v) == 'boolean' then
---      print(formatting .. tostring(v))
---    else
---      print(formatting .. v)
---    end
---  end
---end
 
 local mud_container = yang.util.subClass("mud_container", yang.basic_types.container)
 mud_container_mt = { __index = mud_container }
@@ -380,10 +369,10 @@ function replaceDNSNameNode(new_nodes, node, family_str, dnsname_str, network_so
       else
         nd[family_str][network_source_or_dest_v] = a .. "/32"
       end
-      --nn:fromData(nd)
+      --nn:fromData_noerror(nd)
       nn:clearData()
-      nn:fromData(nd)
-      --nn:fromData(nd)
+      nn:fromData_noerror(nd)
+      --nn:fromData_noerror(nd)
       table.insert(new_nodes, nn)
     end
     return true
@@ -463,7 +452,7 @@ mud_mt = { __index = mud }
     if json_data == nil then
       error(err)
     end
-    self.mud_container:fromData(yang.util.deepcopy(json_data))
+    self.mud_container:fromData_noerror(yang.util.deepcopy(json_data))
     if json_data['ietf-mud:mud'] == nil then
       if file_name == nil then file_name = "<unknown>" end
       error("Top-level node 'ietf-mud:mud' not found in " .. file_name)

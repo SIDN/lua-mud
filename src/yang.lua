@@ -62,9 +62,15 @@ function _M.findNodes(base_node, path)
   -- First of all, check if the path starts at the root ('/') or is relative
   -- to the given node
   if util.string_starts_with(path, "/") then
-    cur_node = getRootNode(base_node)
+    cur_node = cur_node:getRootNode()
     path = path:sub(2)
   end
+
+  print("[XX] [FIND]")
+  print("[XX] [FIND] find " .. path)
+  print("[XX] [FIND] in node " .. cur_node:getName())
+
+  print("[XX] [FIND] in data " .. json.encode(cur_node:toData()))
 
   -- get and remove the first section of the path
   local first, rest = util.str_split_one(path, "/")

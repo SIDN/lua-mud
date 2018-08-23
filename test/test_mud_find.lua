@@ -76,9 +76,10 @@ TestMudFind = {} --class
     local sub = yang.findNodes(self.a.mud_container, "/ietf-mud:mud/to-device-policy")[1]
     lu.assertEquals(sub:getName(), 'to-device-policy')
 
-    --nodes = yang.findNodes(sub, "access-lists/access-list[2]/name")
-    --expect = { "second-acl" }
-    --lu.assertEquals(yang.nodeListToData(nodes), expect)
+    -- TODO: move to own test
+    lu.assertEquals(self.a.mud_container:getRootNode():getName(), "mud-container")
+    lu.assertEquals(self.a.mud_container.yang_nodes['ietf-mud:mud']:getRootNode():getName(), "mud-container")
+    lu.assertEquals(self.a.mud_container.yang_nodes['ietf-mud:mud'].yang_nodes['to-device-policy']:getRootNode():getName(), "mud-container")
 
     nodes = yang.findNodes(sub, "/ietf-mud:mud/to-device-policy/access-lists/access-list[2]/name")
     expect = { "second-acl" }

@@ -252,7 +252,7 @@ TestList = {}
     lu.assertEquals(self.a:hasValue(), false)
 
     local data = {[1]={number=123, string='example'}}
-    self.a:fromData(data)
+    self.a:fromData_noerror(data)
     lu.assertEquals(self.a:hasValue(), true)
     lu.assertEquals(self.a:toData(), data)
   end
@@ -365,11 +365,11 @@ TestIPv4Prefix = {}
   end
 
   function TestIPv4Prefix:testGoodAddresses()
-    self.a:fromData("192.0.2.0/32")
-    self.a:fromData("192.0.2.0/24")
-    self.a:fromData("192.0.2.0/8")
-    self.a:fromData("1.1.1.1/8")
-    self.a:fromData("255.255.255.255/0")
+    self.a:fromData_noerror("192.0.2.0/32")
+    self.a:fromData_noerror("192.0.2.0/24")
+    self.a:fromData_noerror("192.0.2.0/8")
+    self.a:fromData_noerror("1.1.1.1/8")
+    self.a:fromData_noerror("255.255.255.255/0")
   end
 
   function TestIPv4Prefix:testBadAddresses()
@@ -388,10 +388,10 @@ TestIPv6Prefix = {}
   end
 
   function TestIPv6Prefix:testGoodAddresses()
-    self.a:fromData("2001:DB8::/32")
-    self.a:fromData("2001:DB8::1/128")
-    self.a:fromData("2001:DB8:aa11:11aa:12:ad:ff:1/128")
-    self.a:fromData("::/128")
+    self.a:fromData_noerror("2001:DB8::/32")
+    self.a:fromData_noerror("2001:DB8::1/128")
+    self.a:fromData_noerror("2001:DB8:aa11:11aa:12:ad:ff:1/128")
+    self.a:fromData_noerror("::/128")
   end
 
   function TestIPv6Prefix:testBadAddresses()
@@ -421,27 +421,27 @@ TestChoice = {}
 
   function TestChoice:testOne()
     local a = yang.basic_types.choice:create("my-choice", false)
-    a:add_choice("c1", yang.basic_types.string:create("a-string", false))
-    a:add_choice("c2", yang.basic_types.boolean:create("a-bool", false))
-    a:add_choice("c3", yang.basic_types.uint16:create("an-int", false))
+    a:add_case("c1", yang.basic_types.string:create("a-string", false))
+    a:add_case("c2", yang.basic_types.boolean:create("a-bool", false))
+    a:add_case("c3", yang.basic_types.uint16:create("an-int", false))
 
     lu.assertEquals(a:hasValue(), false)
     lu.assertEquals(a:toData(), nil)
 
-    a:fromData("data string")
+    a:fromData_noerror("data string")
     lu.assertEquals(a:hasValue(), true)
     lu.assertEquals(a:toData(), "data string")
 
-    a:fromData(false)
+    a:fromData_noerror(false)
     lu.assertEquals(a:hasValue(), true)
     lu.assertEquals(a:toData(), false)
 
-    a:fromData(12345)
+    a:fromData_noerror(12345)
     lu.assertEquals(a:hasValue(), true)
     --lu.assertEquals(a:toData(), 12345)
 
     -- this one should not work, it should stay at the previous value
-    a:fromData({['aaa']='bbb'})
+    a:fromData_noerror({['aaa']='bbb'})
     lu.assertEquals(a:hasValue(), true)
     --lu.assertEquals(a:toData(), 12345)
 
@@ -462,17 +462,17 @@ TestChoice = {}
     local cc2ci = yang.basic_types.boolean:create("choice-bool", false)
 
     cc1c:add_node(cc1ci)
-    cc:add_choice("l1", cc1c)
+    cc:add_case("l1", cc1c)
 
     cc2c:add_node(cc2ci)
-    cc:add_choice("l2", cc2c)
+    cc:add_case("l2", cc2c)
 
     c:add_node(cc)
 
     local data_int = json.decode('{"my-container": { "choice-int": 4 } }')
     local data_bool = json.decode('{"my-container": { "choice-bool": false } }')
-    c:fromData(data_int)
-    c:fromData(data_bool)
+    c:fromData_noerror(data_int)
+    c:fromData_noerror(data_bool)
     print(json.encode(c:toData()))
   end
 
