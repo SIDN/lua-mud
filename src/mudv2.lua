@@ -147,7 +147,7 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches:add_node(matches_l4_choice)
     matches:add_node(matches_l5_choice)
     matches:add_node(matches_l2_choice)
-    print("[XX] TODO: l2 now has " .. table.getn(matches_l2_choice.cases) .. " cases")
+    --print("[XX] TODO: l2 now has " .. table.getn(matches_l2_choice.cases) .. " cases")
 
     ace_list:add_list_node(matches)
     aces:add_node(ace_list)
@@ -211,7 +211,7 @@ ietf_mud_type_mt = { __index = ietf_mud_type }
     -- this seems to be a difference between the example and the definition
     to_device_policy:add_node(access_lists)
     c:add_node(to_device_policy)
-    print("[XX] NOT LOOKING BUT TO_DEVICE_POLICY HAS PARENT " .. tostring(self))
+    --print("[XX] NOT LOOKING BUT TO_DEVICE_POLICY HAS PARENT " .. tostring(self))
 
     -- it's a presence container, so we *replace* the base node list instead of adding to it
     self.yang_nodes = c.yang_nodes

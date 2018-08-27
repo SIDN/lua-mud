@@ -59,10 +59,10 @@ local YangNode_mt = { __index = YangNode }
 
   -- tries to set data. returns true if success, fail if not
   function YangNode:fromData_noerror(data)
-    print("[XX] [BASETYPE] fromData_noerror called on " ..self:getName().. " with data " .. json.encode(data))
+    --print("[XX] [BASETYPE] fromData_noerror called on " ..self:getName().. " with data " .. json.encode(data))
     r,err = pcall(self.setValue, self, data)
-    print("[XX] [BASETYPE] returning fromData_noerror " .. self:getName() .. " with value: " .. tostring(r))
-    if r then print("[XX] [BASETYPE] data: " .. json.encode(self:toData())) end
+    --print("[XX] [BASETYPE] returning fromData_noerror " .. self:getName() .. " with value: " .. tostring(r))
+    --if r then print("[XX] [BASETYPE] data: " .. json.encode(self:toData())) end
     return r
   end
 
@@ -93,21 +93,21 @@ local YangNode_mt = { __index = YangNode }
 
   function YangNode:getRootNode()
     local curNode = self
-    print("[XX] LOOKING FOR ROOT NODE OF " .. curNode:getName() .. " (" .. tostring(curNode))
+    --print("[XX] LOOKING FOR ROOT NODE OF " .. curNode:getName() .. " (" .. tostring(curNode))
     while curNode:getParent() ~= nil do
-      print("[XX] LOOKING FOR ROOT NODE2 OF " .. curNode:getName() .. " (" .. tostring(curNode))
+      --print("[XX] LOOKING FOR ROOT NODE2 OF " .. curNode:getName() .. " (" .. tostring(curNode))
       curNode = curNode:getParent()
-      print("[XX] LOOKING FOR ROOT NODE2.2 OF " .. curNode:getName() .. " (" .. tostring(curNode))
+      --print("[XX] LOOKING FOR ROOT NODE2.2 OF " .. curNode:getName() .. " (" .. tostring(curNode))
       if (curNode:getParent() == nil) then
-        print("[XX] LOOKING BUT " .. curNode:getName() .. " has no parent" .. " (" .. tostring(curNode))
+        --print("[XX] LOOKING BUT " .. curNode:getName() .. " has no parent" .. " (" .. tostring(curNode))
       end
     end
-      print("[XX] LOOKING FOR ROOT NODE3 OF " .. curNode:getName() .. " (" .. tostring(curNode))
+      --print("[XX] LOOKING FOR ROOT NODE3 OF " .. curNode:getName() .. " (" .. tostring(curNode))
     return curNode
   end
 
   function YangNode:setParent(parent, recurse)
-    print("[XX] SETPARENT OF " .. self:getName() .. " TO " .. parent:getName())
+    --print("[XX] SETPARENT OF " .. self:getName() .. " TO " .. parent:getName())
     self.parent = parent
   end
 
@@ -115,9 +115,9 @@ local YangNode_mt = { __index = YangNode }
   -- parent; in some cases the result may differ depending on who's asking
   -- (like, say, list indices)
   function YangNode:getPath(requester)
-    print("[XX] GETPATH OF " .. self:getType() .. " " .. self:getName() .. " with data " .. json.encode(self:toData()))
+    --print("[XX] GETPATH OF " .. self:getType() .. " " .. self:getName() .. " with data " .. json.encode(self:toData()))
     if requester ~= nil then
-      print("[XX] GETPATH REQUESTED BY " .. requester:getName() .. " which has data " .. json.encode(requester:toData()))
+      --print("[XX] GETPATH REQUESTED BY " .. requester:getName() .. " which has data " .. json.encode(requester:toData()))
     end
     if self.parent ~= nil then
       return self.parent:getPath(self) .. "/" .. self:getName()
@@ -357,7 +357,7 @@ container_mt = { __index = container }
   function container:add_node(node_type_instance)
     if node_type_instance == nil then error("container:add_node() called with nil node_type_instance") end
     self.yang_nodes[node_type_instance:getName()] = node_type_instance
-    print("[XX] [CONTAINER] [SETPARENT] of " ..node_type_instance:getName() .. " TO " .. self:getName())
+    --print("[XX] [CONTAINER] [SETPARENT] of " ..node_type_instance:getName() .. " TO " .. self:getName())
     node_type_instance:setParent(self)
   end
 
@@ -388,14 +388,14 @@ container_mt = { __index = container }
         end
       end
     end
-    if any_match and self:getName() == "matches" then
-      print("[XX] NOT GETPATH BUT DATA OF " .. tostring(self) .. " NOW " .. json.encode(self:toData()))
-      print("[XX] NOT GETPATH BUT THAT MAKES MY PARENT HAVE " .. json.encode(self:getParent():toData()))
-      if self:getParent():getParent() ~= nil then
-        print("[XX] GETPATH GRANDPARENT IS OF TYPE " .. self:getParent():getParent():getType())
-      end
-      print("[XX] NOT GETPATH BUT THAT MAKES MY PARENT HAVE " .. json.encode(self:getParent():toData()))
-    end
+    --if any_match and self:getName() == "matches" then
+      --print("[XX] NOT GETPATH BUT DATA OF " .. tostring(self) .. " NOW " .. json.encode(self:toData()))
+      --print("[XX] NOT GETPATH BUT THAT MAKES MY PARENT HAVE " .. json.encode(self:getParent():toData()))
+      --if self:getParent():getParent() ~= nil then
+      --  print("[XX] GETPATH GRANDPARENT IS OF TYPE " .. self:getParent():getParent():getType())
+      --end
+      --print("[XX] NOT GETPATH BUT THAT MAKES MY PARENT HAVE " .. json.encode(self:getParent():toData()))
+    --end
     return any_match
   end
 
@@ -408,11 +408,11 @@ container_mt = { __index = container }
   function container:hasValue()
     for i,node in pairs(self.yang_nodes) do
       if node:hasValue() then
-        print("[XX] [CONTAINER] hasValue() called on " .. self:getName() .. ": true")
+        --print("[XX] [CONTAINER] hasValue() called on " .. self:getName() .. ": true")
         return true
       end
     end
-    print("[XX] [CONTAINER] hasValue() called on " .. self:getName() .. ": false")
+    --print("[XX] [CONTAINER] hasValue() called on " .. self:getName() .. ": false")
     return false
   end
 
@@ -518,7 +518,7 @@ list_mt = { __index = list }
   function list:add_list_node(node_type_instance)
     self.entry_nodes[node_type_instance:getName()] = node_type_instance
     node_type_instance:setParent(self)
-    print("[XX] MAYBE RELEVANT TOO FOR GETPATH BUT I JUST SET A PARENT TO " .. tostring(node_type_instance))
+    --print("[XX] MAYBE RELEVANT TOO FOR GETPATH BUT I JUST SET A PARENT TO " .. tostring(node_type_instance))
   end
 
   function list:setParent(parent, recurse)
@@ -553,19 +553,19 @@ list_mt = { __index = list }
   end
 
   function list:fromData_noerror(data)
-    print("[XX] [LIST] fromData_noerror called on " ..self:getName().. " with data " .. json.encode(data))
+    --print("[XX] [LIST] fromData_noerror called on " ..self:getName().. " with data " .. json.encode(data))
     local any_match = false
     for i,data_el in pairs(data) do
       local new_el = self:create_list_element()
       if new_el:fromData_noerror(data_el) then
         any_match = true
-        print("[XX] MAYBE RELEVANT FOR GETPATH BUT NEW ENTRY IS " .. tostring(new_el))
+        --print("[XX] MAYBE RELEVANT FOR GETPATH BUT NEW ENTRY IS " .. tostring(new_el))
       end
     end
-    print("[XX] [LIST] returning fromData_noerror " .. self:getName() .. " with value: " .. tostring(any_match))
-    if any_match then
-      print("[XX] [LIST] data: " .. json.encode(self:toData()))
-    end
+    --print("[XX] [LIST] returning fromData_noerror " .. self:getName() .. " with value: " .. tostring(any_match))
+    --if any_match then
+    --  print("[XX] [LIST] data: " .. json.encode(self:toData()))
+    --end
     return any_match
   end
 
@@ -609,10 +609,10 @@ list_mt = { __index = list }
   end
 
   function list:getPath(requester)
-    print("[XX] GETPATH OF LIST " .. self:getName() .. " with data: " .. json.encode(self:toData()))
-    if requester ~= nil then
-      print("[XX] GETPATH REQUESTED BY " .. requester:getName() .. " which has data " .. json.encode(requester:toData()))
-    end
+    --print("[XX] GETPATH OF LIST " .. self:getName() .. " with data: " .. json.encode(self:toData()))
+    --if requester ~= nil then
+    --  print("[XX] GETPATH REQUESTED BY " .. requester:getName() .. " which has data " .. json.encode(requester:toData()))
+    --end
     local index_str = ""
     local parent_str = ""
     if self.parent ~= nil then
@@ -680,13 +680,13 @@ choice_mt = { __index = choice }
   end
 
   function choice:getPath(requester)
-    print("[XX] GETPATH OF CHOICE " .. self:getName() .. " " .. json.encode(self:toData()))
-    if requester ~= nil then
-      print("[XX] GETPATH REQUESTED BY " .. requester:getName() .. " which has data " .. json.encode(requester:toData()))
-    end
+    --print("[XX] GETPATH OF CHOICE " .. self:getName() .. " " .. json.encode(self:toData()))
+    --if requester ~= nil then
+    --  print("[XX] GETPATH REQUESTED BY " .. requester:getName() .. " which has data " .. json.encode(requester:toData()))
+    --end
     -- the choice itself does not show up in the data
     if self.parent ~= nil then
-      print("[XX] passing GETPATH to parent " .. self.parent:getName() .. "(" ..  tostring(self.parent) .. ")")
+      --print("[XX] passing GETPATH to parent " .. self.parent:getName() .. "(" ..  tostring(self.parent) .. ")")
       return self.parent:getPath(self)
     else
       return ""
@@ -719,28 +719,28 @@ choice_mt = { __index = choice }
   end
 
   -- Returns true if a value has been set
-  function choice:setValue(value)
-    for case_name,case in pairs(self.cases) do
-      print("[XX] try choice: " .. self:getPath() .. " with data: " .. json.encode(value))
-    end
-    error("No valid choice found for choice " .. self:getName())
-  end
+  --function choice:setValue(value)
+  --  for case_name,case in pairs(self.cases) do
+  --    print("[XX] try choice: " .. self:getPath() .. " with data: " .. json.encode(value))
+  --  end
+  --  error("No valid choice found for choice " .. self:getName())
+  --end
 
   function choice:hasValue()
     for i,n in pairs(self.cases) do
       if n:hasValue() then
-        print("[XX] [CHOICE] hasValue() called on " .. self:getName() .. ": true")
+        --print("[XX] [CHOICE] hasValue() called on " .. self:getName() .. ": true")
         return true
       end
     end
-    print("[XX] [CHOICE] hasValue() called on " .. self:getName() .. ": false")
+    --print("[XX] [CHOICE] hasValue() called on " .. self:getName() .. ": false")
     return false
   end
 
   function choice:hasCase(case_name)
-    print("[XX] [CHOICE] hasCase called with val " .. case_name)
+    --print("[XX] [CHOICE] hasCase called with val " .. case_name)
     for i,n in pairs(self.cases) do
-      print("[XX] [CHOICE] trying case " .. n:getName())
+      --print("[XX] [CHOICE] trying case " .. n:getName())
       if n:getName() == case_name then return true end
     end
     return false
@@ -749,7 +749,8 @@ choice_mt = { __index = choice }
   -- if choice_name is not nil, it is checked against the cases
   -- if it is nil, any case with a matching dataset succeeds
   function choice:fromData_noerror(data, choice_name)
-    print("[XX] [CHOICE] fromData_noerror called on " ..self:getName().. " with data " .. json.encode(data))
+    --print("[XX] [CHOICE] fromData_noerror called on " ..self:getName().. " with data " .. json.encode(data))
+
     -- can we do this better? right now we copy, and clear them, then put them back
     -- the reason for this is 1: no changes if it fails, 2. to keep track of whether one
     -- succeeded and 3. reset the other cases if one succeeds
@@ -758,19 +759,19 @@ choice_mt = { __index = choice }
     for n,c in pairs(cases_copy) do
       c:clearData()
       if not found then
-        print("[XX] [CHOICE] trying option " .. c:getName() .. " (" .. c:getType() .. ")")
-        print("[XX] [CHOICE] with data: " .. json.encode(data))
+        --print("[XX] [CHOICE] trying option " .. c:getName() .. " (" .. c:getType() .. ")")
+        --print("[XX] [CHOICE] with data: " .. json.encode(data))
         if c:fromData_noerror(data) then
           if choice_name == nil or choice_name == c:getName() then
             found = true
-            print("[XX] [CHOICE] found it in " .. c:getName() .. ": " .. json.encode(c:toData()))
+            --print("[XX] [CHOICE] found it in " .. c:getName() .. ": " .. json.encode(c:toData()))
           end
         end
       end
     end
-    print("[XX] [CHOICE] returning fromData_noerror " .. self:getName() .. " with value: " .. tostring(found))
+    --print("[XX] [CHOICE] returning fromData_noerror " .. self:getName() .. " with value: " .. tostring(found))
     if found then
-      print("[XX] [CHOICE] data: " .. json.encode(self:toData()))
+      --print("[XX] [CHOICE] data: " .. json.encode(self:toData()))
       self.cases = cases_copy
       for i,c in pairs(self.cases) do
         c:setParent(self)
