@@ -372,14 +372,28 @@ container_mt = { __index = container }
     if type(data) ~= 'table' then
       return false
     end
+    if self:getName() == "source-port" then
+      print("[XX] calling fromData() on container " .. self:getName() .. " with value " .. json.encode(data))
+    end
     local any_match = false
     for node_name, node in pairs(self.yang_nodes) do
       -- special case for choices
       if node:isa(_M.choice) then
-        for cname,cnode in pairs(data) do
-          if node:hasCase(cname) and node:fromData_noerror(cnode, cname) then
-            any_match = true
-            break
+        if self:getName() == "source-port" then
+          print("[XX] [container] we have a choice node, trying alts")
+        end
+        -- the choice value can be direct or named, try named versions first
+        if node:fromData_noerror(data) then
+          print("[XX] [container] unnamed choice has match: " .. node:getName())
+          any_match = true
+          break
+        else
+          for cname,cnode in pairs(data) do
+            print("[XX] [container] try choice named " .. cname)
+            if node:hasCase(cname) and node:fromData_noerror(cnode, cname) then
+              any_match = true
+              break
+            end
           end
         end
       elseif data[node_name] ~= nil then
@@ -480,6 +494,14 @@ container_mt = { __index = container }
       end
     end
     error("node " .. name_to_find .. " not found in " .. self:getType() .. " subnodes: [ " .. util.str_join(", ", self:getNodeNames()) .. " ]")
+  end
+
+  -- returns the child of the container. If there are more than one
+  -- returns the first one it finds
+  function container:getChild()
+    for n,node in pairs(self.yang_nodes) do
+      return node
+    end
   end
 
   function container:getAll()
@@ -749,7 +771,7 @@ choice_mt = { __index = choice }
   -- if choice_name is not nil, it is checked against the cases
   -- if it is nil, any case with a matching dataset succeeds
   function choice:fromData_noerror(data, choice_name)
-    --print("[XX] [CHOICE] fromData_noerror called on " ..self:getName().. " with data " .. json.encode(data))
+    print("[XX] [CHOICE] fromData_noerror called on " ..self:getName().. " with data " .. json.encode(data))
 
     -- can we do this better? right now we copy, and clear them, then put them back
     -- the reason for this is 1: no changes if it fails, 2. to keep track of whether one

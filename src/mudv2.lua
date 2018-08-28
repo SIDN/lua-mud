@@ -106,7 +106,7 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches_tcp:add_node(source_port)
 
     local destination_port = yang.basic_types.container:create('destination-port', false)
-    local destination_port_choice = yang.basic_types.choice:create('destination-port', false)
+    local destination_port_choice = yang.basic_types.choice:create('destination-port2', false)
 
     local destination_port_range = yang.basic_types.container:create('port-range', false)
     destination_port_range:add_node(yang.basic_types.uint16:create('lower-port'))
@@ -244,71 +244,83 @@ function aceToRules(ace_node)
         local v6_or_v4 = nil
         local direction = nil
         local rulematches = ""
-        for i,match in pairs(ace:getNode('matches').yang_nodes) do
-            if match:getName() == 'ipv4' then
-                v6_or_v4 = "ip "
-                for j,match_node in pairs(match.yang_nodes) do
-                    if match_node:hasValue() then
-                        if match_node:getName() == 'ietf-acldns:dst-dnsname' then
-                            rulematches = rulematches .. "daddr " .. match_node:toData() .. " "
-                        elseif match_node:getName() == 'ietf-acldns:src-dnsname' then
-                            rulematches = rulematches .. "saddr " .. match_node:toData() .. " "
-                        elseif match_node:getName() == 'protocol' then
-                            -- this is done by virtue of it being an ipv6 option
-                        elseif match_node:getName() == 'destination-port' then
-                            -- TODO: check operator and/or range
-                            rulematches = rulematches .. "dport " .. match_node:getChoice():getNode('port'):getValue() .. " "
-                        else
-                            error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
-                        end
-                    end
-                end
-            elseif match:getName() == 'ipv6' then
-                v6_or_v4 = "ip6 "
-                for j,match_node in pairs(match.yang_nodes) do
-                    if match_node:hasValue() then
-                        if match_node:getName() == 'ietf-acldns:dst-dnsname' then
-                            rulematches = rulematches .. "daddr " .. match_node:toData() .. " "
-                        elseif match_node:getName() == 'ietf-acldns:src-dnsname' then
-                            rulematches = rulematches .. "saddr " .. match_node:toData() .. " "
-                        elseif match_node:getName() == 'protocol' then
-                            -- this is done by virtue of it being an ipv6 option
-                        elseif match_node:getName() == 'destination-port' then
-                            -- TODO: check operator and/or range
-                            rulematches = rulematches .. "dport " .. match_node:getChoice():getNode('port'):getValue() .. " "
-                        else
-                            error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
-                        end
-                    end
-                end
-                -- TODO
-                -- TODO
-            elseif match:getName() == 'tcp' then
-                rulematches = rulematches .. "tcp "
-                for j,match_node in pairs(match.yang_nodes) do
-                    if match_node:hasValue() then
-                        if match_node:getName() == 'ietf-mud:direction-initiated' then
-                            -- TODO: does this have any influence on the actual rule?
-                            if match_node:toData() == 'from-device' then
-                                direction = "filter output "
-                            elseif match_node:toData() == 'to-device' then
-                                direction = "filter input "
+        for i,match_choice in pairs(ace:getNode('matches').yang_nodes) do
+            local match = match_choice:getActiveCase()
+            if match ~= nil then
+                if match:getName() == 'ipv4' then
+                    v6_or_v4 = "ip "
+                    for j,match_node in pairs(match.yang_nodes) do
+                        if match_node:hasValue() then
+                            
+                            if match_node:getName() == 'ietf-acldns:dst-dnsname' then
+                                rulematches = rulematches .. "daddr " .. match_node:toData() .. " "
+                            elseif match_node:getName() == 'ietf-acldns:src-dnsname' then
+                                rulematches = rulematches .. "saddr " .. match_node:toData() .. " "
+                            elseif match_node:getName() == 'protocol' then
+                                -- this is done by virtue of it being an ipv6 option
+                            elseif match_node:getName() == 'destination-port' then
+                                -- TODO: check operator and/or range
+                                rulematches = rulematches .. "dport " .. match_node:getActiveCase():getNode('port'):getValue() .. " "
                             else
-                                error('unknown direction-initiated: ' .. match_node:toData())
+                                error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
                             end
-                        elseif match_node:getName() == 'source-port' then
-                            -- TODO: check operator and/or range
-                            rulematches = rulematches .. "sport " .. match_node:getChoice():getNode('port'):getValue() .. " "
-                        elseif match_node:getName() == 'destination-port' then
-                            -- TODO: check operator and/or range
-                            rulematches = rulematches .. "dport " .. match_node:getChoice():getNode('port'):getValue() .. " "
-                        else
-                            error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
                         end
                     end
+                elseif match:getName() == 'ipv6' then
+                    v6_or_v4 = "ip6 "
+                    for j,match_node in pairs(match.yang_nodes) do
+                        if match_node:hasValue() then
+                            print("[XX] MATCHNODE: " .. json.encode(match_node:toData()))
+                            if match_node:getName() == 'ietf-acldns:dst-dnsname' then
+                                rulematches = rulematches .. "daddr " .. match_node:toData() .. " "
+                            elseif match_node:getName() == 'ietf-acldns:src-dnsname' then
+                                rulematches = rulematches .. "saddr " .. match_node:toData() .. " "
+                            elseif match_node:getName() == 'protocol' then
+                                -- this is done by virtue of it being an ipv6 option
+                            elseif match_node:getName() == 'destination-port' then
+                                -- TODO: check operator and/or range
+                                rulematches = rulematches .. "dport " .. match_node:getActiveCase():getNode('port'):getValue() .. " "
+                            else
+                                error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
+                            end
+                        end
+                    end
+                    -- TODO
+                    -- TODO
+                elseif match:getName() == 'tcp' then
+                    rulematches = rulematches .. "tcp "
+                    for j,match_node in pairs(match.yang_nodes) do
+                        if match_node:hasValue() then
+                            if match_node:getName() == 'ietf-mud:direction-initiated' then
+                                -- TODO: does this have any influence on the actual rule?
+                                if match_node:toData() == 'from-device' then
+                                    direction = "filter output "
+                                elseif match_node:toData() == 'to-device' then
+                                    direction = "filter input "
+                                else
+                                    error('unknown direction-initiated: ' .. match_node:toData())
+                                end
+                            elseif match_node:getName() == 'source-port' then
+                                -- TODO: check operator and/or range
+                                rulematches = rulematches .. "sport " .. match_node:getChild():getActiveCase():getNode('port'):getValue() .. " "
+                            elseif match_node:getName() == 'destination-port' then
+                                -- TODO: check operator and/or range
+                                print("[XX] MATCH NODE: " .. match_node:getName() .. "(" .. match_node:getType() .. ")")
+                                print("[XX] CHILD NODE: " .. match_node:getChild():getName() .. "(" .. match_node:getChild():getType() .. ")")
+                                print("[XX] GHILD NODE: " .. match_node:getChild():getActiveCase():getName() .. "(" .. match_node:getChild():getActiveCase():getType() .. ")")
+
+                                local port_case = match_node:getChild():getActiveCase()
+                                -- TODO: chech which case it is, for now we assume operator->eq
+                                
+                                rulematches = rulematches .. "dport " .. port_case:getNode("port"):getValue() .. " "
+                            else
+                                error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
+                            end
+                        end
+                    end
+                else
+                    error('unknown match type: ' .. match:getName())
                 end
-            else
-                error('unknown match type: ' .. match:getName())
             end
         end
 
@@ -423,12 +435,12 @@ function aceToRulesIPTables(ace_node)
   --
   -- conversion to actual rules
   --
-  print("[XX] NEW NODES")
+  --print("[XX] NEW NODES")
   for i,n in pairs(new_nodes) do
     table.insert(paths, n:getPath())
-    print(json.encode(n:toData()))
+    --print(json.encode(n:toData()))
   end
-  print("[XX] END OF NEW NODES")
+  --print("[XX] END OF NEW NODES")
 
   return paths
 end

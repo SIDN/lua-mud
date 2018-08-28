@@ -32,9 +32,9 @@ TestMudRulegen = {} --class
 
   function TestMudRulegen:testIPTables()
     local b = mu.mud.create()
-    b:parseFile("../examples/example_from_draft.json")
+    local status = b:parseFile("../examples/example_from_draft.json")
     for i,r in pairs(b:makeRulesIPTables()) do
-      print("IPTABLES: " .. r)
+      --print("IPTABLES: " .. r)
     end
   end
 -- class testMud
