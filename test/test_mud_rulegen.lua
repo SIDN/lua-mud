@@ -1,7 +1,10 @@
 #!/usr/bin/lua
 
-local mu = require("mudv2")
+local mu = require("mud")
 local lu = require("luaunit")
+
+local iptables_rb = require("rulebuilders/iptables")
+local nftables_rb = require("rulebuilders/nftables")
 
 local json = require("cjson")
 
@@ -12,7 +15,8 @@ TestMudRulegen = {} --class
   end
 
   function TestMudRulegen:testMakeRules()
-    local rules = self.a:makeRules()
+    builder = nftables_rb.create_rulebuilder()
+    local rules = builder:build_rules(self.a)
     -- hmz, order is undefined with dicts...
     local expect = {
       "nft add rule inet filter output ip6 tcp dport 443 daddr example.com accept",
@@ -25,16 +29,22 @@ TestMudRulegen = {} --class
   function TestMudRulegen:testMudMakerExample()
     local b = mu.mud.create()
     b:parseFile("../examples/example_from_mudmaker.json")
-    for i,r in pairs(b:makeRules()) do
-      print(r)
+    builder = nftables_rb.create_rulebuilder()
+    local rules = builder:build_rules(self.a)
+    for i,r in pairs(rules) do
+      --print(r)
     end
   end
 
   function TestMudRulegen:testIPTables()
     local b = mu.mud.create()
-    local status = b:parseFile("../examples/example_from_draft.json")
-    for i,r in pairs(b:makeRulesIPTables()) do
-      --print("IPTABLES: " .. r)
+    b:parseFile("../examples/example_cloudservice.json")
+
+    local rb = iptables_rb.create_rulebuilder()
+    local rules = rb:build_rules(b)
+    --local rules = rb:build_rules(self.a)
+    for i,r in pairs(rules) do
+      print("[XX] RULE: " .. r)
     end
   end
 -- class testMud

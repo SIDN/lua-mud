@@ -95,7 +95,6 @@ function _M.get_index_of(list, element, max_list_if_not_found)
   if max_list_if_not_found then
     return table.getn(list)
   else
-    print("[XX] ELEMENT NOT FOUND IN LIST: " .. json.encode(element:toData()))
     --tdump(element)
     error('element not found in list')
   end
@@ -132,7 +131,6 @@ function _M.subClass( classNameString, baseClass )
 --     function new_class:create()
 --        local newinst = {}
 --        setmetatable( newinst, class_mt )
---        print("[Xx] creating new subclass: " .. classNameString)
 --        return newinst
 --    end
 
@@ -202,6 +200,60 @@ end
 function _M.string_starts_with(full_string, sub_string)
   return full_string:sub(1, #sub_string) == sub_string
 end
+
+local OrderedDict = {}
+local OrderedDict_mt = {
+  __index = function(obj, key)
+    return obj.values[key]
+  end,
+  __newindex = function(obj, key, value)
+    if value ~= nil then
+      if obj.values[key] == nil then
+        table.insert(obj.keys, key)
+      end
+    else
+      -- remove it from the keys list
+      -- compact the list as well?
+      for i,v in pairs(obj.keys) do
+        if v == key then
+          table.remove(obj.keys, i)
+          break
+        end
+      end
+    end
+    obj.values[key] = value
+  end,
+  --
+  -- Ideally, we'd use __pairs here too, but lua 5.1 does not seem to
+  -- support that
+  --
+}
+
+function OrderedDict.create()
+  local new_inst = {}
+  -- An ordered dict contains a list of keys, and
+  -- a standard table for values
+  new_inst.keys = {}
+  new_inst.values = {}
+  new_inst.size = function (self)
+    return table.getn(self.keys)
+  end
+  new_inst.iterate = function(tbl)
+    local function stateless_iter(tbl, k)
+      local v
+      -- Implement your own key,value selection logic in place of next
+      k, v = next(tbl.keys, k)
+      if v then return k,tbl.values[v] end
+    end
+
+    -- Return an iterator function, the table, starting point
+    return stateless_iter, tbl, nil    
+  end
+  new_inst = setmetatable(new_inst, OrderedDict_mt)
+  return new_inst
+end
+
+_M.OrderedDict = OrderedDict
 
 return _M
 

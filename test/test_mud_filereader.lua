@@ -1,6 +1,6 @@
 #!/usr/bin/lua
 
-local mu = require("mudv2")
+local mu = require("mud")
 local yang = require("yang")
 local lu = require("luaunit")
 
@@ -18,13 +18,11 @@ TestMudFileReader = {} --class
 
   function TestMudFileReader:testMudMakerExample()
     self.a:parseFile("../examples/example_from_mudmaker.json")
-    --self.a:print()
   end
 
   function TestMudFileReader:testMudMakerExample2()
     -- disabled for now, we don't support the match type ietf-mud:mud yet
     --self.a:parseFile("../examples/example_from_mudmaker2.json")
-    --self.a:print()
   end
 
   function TestMudFileReader:testGetNode()
@@ -44,11 +42,6 @@ TestMudFileReader = {} --class
 
   function TestMudFileReader:testGetPath()
     self.a:parseFile("../examples/example_from_draft.json")
-    print(json.encode(self.a.mud_container:toData()))
-  end
-
-  function TestMudFileReader:testGetPath2()
-    self.a:parseFile("../examples/example_from_draft.json")
     lu.assertEquals(self.a.mud_container:getRootNode():getName(), "mud-container")
     lu.assertEquals(self.a.mud_container.yang_nodes['ietf-mud:mud']:getRootNode():getName(), "mud-container")
     lu.assertEquals(self.a.mud_container.yang_nodes['ietf-mud:mud'].yang_nodes['to-device-policy']:getRootNode():getName(), "mud-container")
@@ -62,7 +55,6 @@ TestMudFileReader = {} --class
     self.a:parseFile("../examples/example_from_draft.json")
     local paths = {}
     for i,n in pairs(self.a.mud_container:getAll()) do
-      --print("[XX] calling getpath[] " .. i)
       table.insert(paths, n:getPath())
     end
     local expected = {
