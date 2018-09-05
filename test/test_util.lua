@@ -121,3 +121,70 @@ TestUtil = {} --class
   --end
 -- class testUtil
 
+
+
+TestOrderedDict = {} --class
+  function TestOrderedDict:setup()
+    self.od = yang.util.OrderedDict.create()
+  end
+
+  function TestOrderedDict:test_assign()
+    lu.assertEquals(self.od["a"], nil)
+    self.od["a"] = 1
+    lu.assertEquals(self.od["a"], 1)
+    self.od["a"] = 2
+    lu.assertEquals(self.od["a"], 2)
+    self.od["b"] = 3
+    self.od["c"] = 4
+    lu.assertEquals(self.od["a"], 2)
+    lu.assertEquals(self.od["b"], 3)
+    lu.assertEquals(self.od["c"], 4)
+  end
+
+  function TestOrderedDict:test_size()
+    lu.assertEquals(self.od:size(), 0)
+    self.od["a"] = "foo"
+    lu.assertEquals(self.od["a"], "foo")
+    lu.assertEquals(table.getn(self.od.keys), 1)
+    lu.assertEquals(self.od:size(), 1)
+    self.od["b"] = "bar"
+    lu.assertEquals(self.od:size(), 2)
+    self.od["a"] = "baz"
+    lu.assertEquals(self.od:size(), 2)
+    self.od["a"] = nil
+    lu.assertEquals(self.od:size(), 1)
+  end
+
+  function TestOrderedDict:test_order()
+    local keys_a = { "a", "b", "c", "d" }
+    local keys_b = { "d", "c", "b", "a" }
+    local expected_values = { 11, 22, 33, 44}
+    local odict = yang.util.OrderedDict.create()
+
+    for i,key in pairs(keys_a) do
+      odict[key] = expected_values[i]
+    end
+
+    local values = {}
+    for i,v in odict:iterate() do
+      table.insert(values, v)
+    end
+    
+    lu.assertEquals(values, expected_values)
+
+    -- now add the same values, but reverse the keys
+    -- a normal dict would have switched one of these around
+    odict = yang.util.OrderedDict.create()
+    for i,key in pairs(keys_b) do
+      odict[key] = expected_values[i]
+    end
+
+    local values = {}
+    for i,v in odict:iterate() do
+      table.insert(values, v)
+    end
+    
+    lu.assertEquals(values, expected_values)
+    
+  end
+-- class testOrderedDict

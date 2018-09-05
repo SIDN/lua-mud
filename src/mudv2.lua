@@ -237,6 +237,25 @@ mud_container_mt = { __index = mud_container }
   end
 -- mud_container
 
+function ipMatchToRulePart(match_node)
+  rulepart = ""
+
+  if match_node:getName() == 'ietf-acldns:dst-dnsname' then
+      rulepart = rulepart .. "daddr " .. match_node:toData() .. " "
+  elseif match_node:getName() == 'ietf-acldns:src-dnsname' then
+      rulepart = rulepart .. "saddr " .. match_node:toData() .. " "
+  elseif match_node:getName() == 'protocol' then
+      -- this is done by virtue of it being an ipv6 option
+  elseif match_node:getName() == 'destination-port' then
+      -- TODO: check operator and/or range
+      rulepart = rulepart .. "dport " .. match_node:getActiveCase():getNode('port'):getValue() .. " "
+  else
+      error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
+  end
+
+  return rulepart
+end
+
 function aceToRules(ace_node)
     local rules = {}
     for i,ace in pairs(ace_node:getValue()) do
@@ -251,38 +270,14 @@ function aceToRules(ace_node)
                     v6_or_v4 = "ip "
                     for j,match_node in pairs(match.yang_nodes) do
                         if match_node:hasValue() then
-                            
-                            if match_node:getName() == 'ietf-acldns:dst-dnsname' then
-                                rulematches = rulematches .. "daddr " .. match_node:toData() .. " "
-                            elseif match_node:getName() == 'ietf-acldns:src-dnsname' then
-                                rulematches = rulematches .. "saddr " .. match_node:toData() .. " "
-                            elseif match_node:getName() == 'protocol' then
-                                -- this is done by virtue of it being an ipv6 option
-                            elseif match_node:getName() == 'destination-port' then
-                                -- TODO: check operator and/or range
-                                rulematches = rulematches .. "dport " .. match_node:getActiveCase():getNode('port'):getValue() .. " "
-                            else
-                                error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
-                            end
+                            rulematches = rulematches .. ipMatchToRulePart(match_node)
                         end
                     end
                 elseif match:getName() == 'ipv6' then
                     v6_or_v4 = "ip6 "
                     for j,match_node in pairs(match.yang_nodes) do
                         if match_node:hasValue() then
-                            print("[XX] MATCHNODE: " .. json.encode(match_node:toData()))
-                            if match_node:getName() == 'ietf-acldns:dst-dnsname' then
-                                rulematches = rulematches .. "daddr " .. match_node:toData() .. " "
-                            elseif match_node:getName() == 'ietf-acldns:src-dnsname' then
-                                rulematches = rulematches .. "saddr " .. match_node:toData() .. " "
-                            elseif match_node:getName() == 'protocol' then
-                                -- this is done by virtue of it being an ipv6 option
-                            elseif match_node:getName() == 'destination-port' then
-                                -- TODO: check operator and/or range
-                                rulematches = rulematches .. "dport " .. match_node:getActiveCase():getNode('port'):getValue() .. " "
-                            else
-                                error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
-                            end
+                            rulematches = rulematches .. ipMatchToRulePart(match_node)
                         end
                     end
                     -- TODO
