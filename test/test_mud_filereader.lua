@@ -18,13 +18,11 @@ TestMudFileReader = {} --class
 
   function TestMudFileReader:testMudMakerExample()
     self.a:parseFile("../examples/example_from_mudmaker.json")
-    --self.a:print()
   end
 
   function TestMudFileReader:testMudMakerExample2()
     -- disabled for now, we don't support the match type ietf-mud:mud yet
     --self.a:parseFile("../examples/example_from_mudmaker2.json")
-    --self.a:print()
   end
 
   function TestMudFileReader:testGetNode()
@@ -43,11 +41,6 @@ TestMudFileReader = {} --class
   end
 
   function TestMudFileReader:testGetPath()
-    self.a:parseFile("../examples/example_from_draft.json")
-    print(json.encode(self.a.mud_container:toData()))
-  end
-
-  function TestMudFileReader:testGetPath2()
     self.a:parseFile("../examples/example_from_draft.json")
     lu.assertEquals(self.a.mud_container:getRootNode():getName(), "mud-container")
     lu.assertEquals(self.a.mud_container.yang_nodes['ietf-mud:mud']:getRootNode():getName(), "mud-container")

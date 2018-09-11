@@ -473,7 +473,6 @@ TestChoice = {}
     local data_bool = json.decode('{"my-container": { "choice-bool": false } }')
     c:fromData_noerror(data_int)
     c:fromData_noerror(data_bool)
-    print(json.encode(c:toData()))
   end
 
   function TestChoice:temp()

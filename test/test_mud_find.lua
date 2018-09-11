@@ -17,7 +17,6 @@ TestMudFind = {} --class
   end
 
   function TestMudFind:testFindBadNode()
-    --self.a:print()
     intNode = yang.basic_types.uint8:create("int")
     lu.assertError(yang.findNodeWithProperty, intNode, 'int', 'bar', 2)
     lu.assertError(yang.findNodeWithProperty, self.a.mud_container, 'no_such_element', 'bar', 2)

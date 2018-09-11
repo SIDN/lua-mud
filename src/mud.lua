@@ -325,7 +325,6 @@ function aceToRulesIPTables(ace_node)
   for i,n in pairs(nodes) do
     local nd = n:toData()
     table.insert(paths, n:getPath())
-    print(json.encode(n:toData()))
     -- need to make it into destination-ipv4-network, destination-ipv6-network,
     -- source-ipv4-network or source-ipv6-network, depending on what it was
     -- (ipv6/destination-dnsname, etc.)
@@ -353,7 +352,6 @@ function aceToRulesIPTables(ace_node)
   --
   for i,n in pairs(new_nodes) do
     table.insert(paths, n:getPath())
-    --print(json.encode(n:toData()))
   end
 
   return paths
