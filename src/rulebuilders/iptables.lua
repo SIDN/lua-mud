@@ -13,7 +13,6 @@ function _M.create_rulebuilder()
 end
 
 function RuleBuilder:build_rules(mud, settings)
-  print("[XX] BUILDING IPTABLES RULES NOW. sort of")
 
   local rules = {}
   -- find out which incoming and which outgoiing rules we have

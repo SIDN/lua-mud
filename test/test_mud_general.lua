@@ -1,6 +1,6 @@
 #!/usr/bin/lua
 
-local mu = require("mudv2")
+local mu = require("mud")
 local lu = require("luaunit")
 
 local json = require("cjson")

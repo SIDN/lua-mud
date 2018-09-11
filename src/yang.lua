@@ -66,10 +66,6 @@ function _M.findNodes(base_node, path)
     path = path:sub(2)
   end
 
-  --print("[XX] [FIND]")
-  --print("[XX] [FIND] find " .. path)
-  --print("[XX] [FIND] in node " .. cur_node:getName())
-  --print("[XX] [FIND] in data " .. json.encode(cur_node:toData()))
 
   -- get and remove the first section of the path
   local first, rest = util.str_split_one(path, "/")

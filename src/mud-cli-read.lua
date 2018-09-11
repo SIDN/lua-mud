@@ -2,7 +2,7 @@
 -- Implementation of the command line interface as called by 'lua-mud(1)'
 --
 
-local lua_mud = require 'mudv2'
+local lua_mud = require 'mud'
 
 
 local mud_cli = {}

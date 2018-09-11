@@ -95,7 +95,6 @@ function _M.get_index_of(list, element, max_list_if_not_found)
   if max_list_if_not_found then
     return table.getn(list)
   else
-    print("[XX] ELEMENT NOT FOUND IN LIST: " .. json.encode(element:toData()))
     --tdump(element)
     error('element not found in list')
   end
@@ -132,7 +131,6 @@ function _M.subClass( classNameString, baseClass )
 --     function new_class:create()
 --        local newinst = {}
 --        setmetatable( newinst, class_mt )
---        print("[Xx] creating new subclass: " .. classNameString)
 --        return newinst
 --    end
 

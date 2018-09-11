@@ -72,9 +72,6 @@ function aceToRules(ace_node)
                                 rulematches = rulematches .. "sport " .. match_node:getChild():getActiveCase():getNode('port'):getValue() .. " "
                             elseif match_node:getName() == 'destination-port' then
                                 -- TODO: check operator and/or range
-                                print("[XX] MATCH NODE: " .. match_node:getName() .. "(" .. match_node:getType() .. ")")
-                                print("[XX] CHILD NODE: " .. match_node:getChild():getName() .. "(" .. match_node:getChild():getType() .. ")")
-                                print("[XX] GHILD NODE: " .. match_node:getChild():getActiveCase():getName() .. "(" .. match_node:getChild():getActiveCase():getType() .. ")")
 
                                 local port_case = match_node:getChild():getActiveCase()
                                 -- TODO: chech which case it is, for now we assume operator->eq
@@ -151,7 +148,6 @@ function _M.create_rulebuilder()
 end
 
 function RuleBuilder:build_rules(mud, settings)
-  print("[XX] BUILDING NFTABLES RULES NOW. sort of")
   return makeRules(mud)
 end
 

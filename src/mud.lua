@@ -1,476 +1,401 @@
--- Lua Manufacturer Usage Description library
---
--- Author: Jelte Jansen <jelte.jansen@sidn.nl>
--- License: GPLv3, see LICENSE for details
+-- MUD container
 
--- This is the main module, containing the core functionality:
--- - read a mud description json structure,
--- - translate keywords to IP addresses
--- - pass a packet to evaluate, return matches or not matches
+local json = require("cjson")
+local yang = require "yang"
 
-cjson = require 'cjson'
+local _M = {}
 
---
--- helper functions. todo: put in an util submodule?
---
-function has_value(tab, el)
-    for _,v in pairs(tab) do
-        if el == v then return true end
+-- ietf-access-control-list is a specialized type; the base of it is a container
+local ietf_access_control_list = yang.util.subClass("ietf_access_control_list", yang.basic_types.container)
+ietf_access_control_list_mt = { __index = ietf_access_control_list }
+  function ietf_access_control_list:create(nodeName, mandatory)
+    local new_inst = yang.basic_types.container:create(nodeName, mandatory)
+    -- additional step: add the type name
+    new_inst.typeName = "acl"
+    setmetatable(new_inst, ietf_access_control_list_mt)
+    new_inst:add_definition()
+    return new_inst
+  end
+
+  function ietf_access_control_list:add_definition()
+    local acl_list = yang.basic_types.list:create('acl')
+    acl_list:add_list_node(yang.basic_types.string:create('name', true))
+    acl_list:add_list_node(yang.complex_types.acl_type:create('type', false))
+
+    local aces = yang.basic_types.container:create('aces')
+    local ace_list = yang.basic_types.list:create('ace')
+    ace_list:add_list_node(yang.basic_types.string:create('name'))
+    --local matches = yang.basic_types.choice:create('matches')
+    local matches = yang.basic_types.container:create('matches')
+
+    local matches_eth = yang.basic_types.container:create('eth')
+    matches_eth:add_node(yang.basic_types.mac_address:create('destination-mac-address'))
+    matches_eth:add_node(yang.basic_types.mac_address:create('destination-mac-address-mask'))
+    matches_eth:add_node(yang.basic_types.mac_address:create('source-mac-address'))
+    matches_eth:add_node(yang.basic_types.mac_address:create('source-mac-address-mask'))
+    matches_eth:add_node(yang.basic_types.eth_ethertype:create('ethertype'))
+
+    local matches_ipv4 = yang.basic_types.container:create('ipv4')
+    matches_ipv4:add_node(yang.basic_types.inet_dscp:create('dscp', false))
+    matches_ipv4:add_node(yang.basic_types.uint8:create('ecn', false))
+    matches_ipv4:add_node(yang.basic_types.uint16:create('length', false))
+    matches_ipv4:add_node(yang.basic_types.uint8:create('ttl', false))
+    matches_ipv4:add_node(yang.basic_types.uint8:create('protocol', false))
+    matches_ipv4:add_node(yang.basic_types.uint8:create('ihl', false))
+    matches_ipv4:add_node(yang.basic_types.bits:create('flags', false))
+    matches_ipv4:add_node(yang.basic_types.uint16:create('offset', false))
+    matches_ipv4:add_node(yang.basic_types.uint16:create('identification', false))
+    -- TODO: -network
+    local ipv4_destination_network_choice = yang.basic_types.choice:create('destination-network', false, true)
+    ipv4_destination_network_choice:set_named(false)
+    local ipv4prefix = yang.complex_types.inet_ipv4_prefix:create('destination-ipv4-network')
+    ipv4_destination_network_choice:add_case('destination-ipv4-network', ipv4prefix)
+    matches_ipv4:add_node(ipv4_destination_network_choice, false)
+    local ipv4_source_network_choice = yang.basic_types.choice:create('source-network', false, true)
+    ipv4_source_network_choice:set_named(false)
+    -- this should be type ipv4-prefix
+    ipv4_source_network_choice:add_case('source-ipv4-network', yang.complex_types.inet_ipv4_prefix:create('source-ipv4-network'))
+    matches_ipv4:add_node(ipv4_source_network_choice, false)
+
+    -- mud augmentation
+    matches_ipv4:add_node(yang.basic_types.string:create('ietf-acldns:dst-dnsname', false))
+    matches_ipv4:add_node(yang.basic_types.string:create('ietf-acldns:src-dnsname', false))
+
+    local matches_ipv6 = yang.basic_types.container:create('ipv6')
+    matches_ipv6:add_node(yang.basic_types.inet_dscp:create('dscp', false))
+    matches_ipv6:add_node(yang.basic_types.uint8:create('ecn', false))
+    matches_ipv6:add_node(yang.basic_types.uint16:create('length', false))
+    matches_ipv6:add_node(yang.basic_types.uint8:create('ttl', false))
+    matches_ipv6:add_node(yang.basic_types.uint8:create('protocol', false))
+    matches_ipv6:add_node(yang.basic_types.string:create('ietf-acldns:dst-dnsname', false))
+    matches_ipv6:add_node(yang.basic_types.string:create('ietf-acldns:src-dnsname', false))
+    -- TODO: -network
+    local ipv6_destination_network_choice = yang.basic_types.choice:create('destination-network', false, true)
+    ipv6_destination_network_choice:set_named(false)
+    ipv6_destination_network_choice:add_case('destination-ipv6-network', yang.complex_types.inet_ipv6_prefix:create('destination-ipv6-network', false))
+    matches_ipv6:add_node(ipv6_destination_network_choice)
+    local ipv6_source_network_choice = yang.basic_types.choice:create('source-network', false, true)
+    ipv6_source_network_choice:set_named(false)
+    -- this should be type ipv6-prefix
+    ipv6_source_network_choice:add_case('source-ipv6-network', yang.complex_types.inet_ipv6_prefix:create('source-ipv6-network'))
+    matches_ipv6:add_node(ipv6_source_network_choice, false)
+    -- TODO: flow-label
+
+    local matches_tcp = yang.basic_types.container:create('tcp')
+    matches_tcp:add_node(yang.basic_types.uint32:create('sequence-number', false))
+    matches_tcp:add_node(yang.basic_types.uint32:create('acknowledgement-number', false))
+    matches_tcp:add_node(yang.basic_types.uint8:create('offset', false))
+    matches_tcp:add_node(yang.basic_types.uint8:create('reserved', false))
+
+    -- new choice realization
+    -- todo: is this mandatory?
+    local source_port = yang.basic_types.container:create('source-port', false)
+    local source_port_choice = yang.basic_types.choice:create('source-port', false)
+
+    local source_port_range = yang.basic_types.container:create('port-range', false)
+    source_port_range:add_node(yang.basic_types.uint16:create('lower-port'))
+    source_port_range:add_node(yang.basic_types.uint16:create('upper-port'))
+    source_port_choice:add_case('range', source_port_range)
+
+    local source_port_operator = yang.basic_types.container:create('port-operator', false)
+    source_port_operator:add_node(yang.basic_types.string:create('operator', false))
+    source_port_operator:add_node(yang.basic_types.uint16:create('port'))
+    source_port_choice:add_case('operator', source_port_operator)
+
+    source_port:add_node(source_port_choice)
+    matches_tcp:add_node(source_port)
+
+    local destination_port = yang.basic_types.container:create('destination-port', false)
+    local destination_port_choice = yang.basic_types.choice:create('destination-port2', false)
+
+    local destination_port_range = yang.basic_types.container:create('port-range', false)
+    destination_port_range:add_node(yang.basic_types.uint16:create('lower-port'))
+    destination_port_range:add_node(yang.basic_types.uint16:create('upper-port'))
+    destination_port_choice:add_case('range', destination_port_range)
+
+    local destination_port_operator = yang.basic_types.container:create('port-operator', false)
+    destination_port_operator:add_node(yang.basic_types.string:create('operator', false))
+    destination_port_operator:add_node(yang.basic_types.uint16:create('port'))
+    destination_port_choice:add_case('operator', destination_port_operator)
+
+    destination_port:add_node(destination_port_choice)
+    matches_tcp:add_node(destination_port)
+
+    -- this is an augmentation from draft-mud
+    -- TODO: type 'direction' (enum?)
+    matches_tcp:add_node(yang.basic_types.string:create('ietf-mud:direction-initiated', false))
+
+    local matches_udp = yang.basic_types.container:create('udp')
+    matches_udp:add_node(yang.basic_types.uint16:create('length', false))
+    matches_udp:add_node(yang.util.deepcopy(source_port_choice))
+    matches_udp:add_node(yang.util.deepcopy(destination_port_choice))
+
+    local matches_l1_choice = yang.basic_types.choice:create('l1', false)
+    local matches_l2_choice = yang.basic_types.choice:create('l2', false)
+    local matches_l3_choice = yang.basic_types.choice:create('l3', false)
+    local matches_l4_choice = yang.basic_types.choice:create('l4', false)
+    local matches_l5_choice = yang.basic_types.choice:create('l5', false)
+
+    matches_l1_choice:add_case('eth', matches_eth)
+    matches_l3_choice:add_case('tcp', matches_tcp)
+    matches_l4_choice:add_case('udp', matches_udp)
+    matches_l5_choice:add_case('ipv6', matches_ipv6)
+    matches_l2_choice:add_case('ipv4', matches_ipv4)
+
+    matches:add_node(matches_l1_choice)
+    matches:add_node(matches_l3_choice)
+    matches:add_node(matches_l4_choice)
+    matches:add_node(matches_l5_choice)
+    matches:add_node(matches_l2_choice)
+
+    ace_list:add_list_node(matches)
+    aces:add_node(ace_list)
+
+    local actions = yang.basic_types.container:create('actions')
+    -- todo identityref
+    actions:add_node(yang.basic_types.string:create('forwarding'))
+    actions:add_node(yang.basic_types.string:create('logging', false))
+
+    ace_list:add_list_node(actions)
+    acl_list:add_list_node(aces)
+
+    -- report: discrepancy between example and definition? (or maybe just tree)
+    -- TODO: look up what to do with singular/plural, maybe that is stated somewhere
+    self:add_node(acl_list)
+  end
+-- class ietf_access_control_list
+
+local ietf_mud_type = yang.util.subClass("ietf_mud_type", yang.basic_types.container)
+ietf_mud_type_mt = { __index = ietf_mud_type }
+  function ietf_mud_type:create(nodeName, mandatory)
+    local new_inst = yang.basic_types.container:create(nodeName, mandatory)
+    -- additional step: add the type name
+    new_inst.typeName = "ietf-mud:mud"
+    setmetatable(new_inst, ietf_mud_type_mt)
+    new_inst:add_definition()
+    return new_inst
+  end
+
+  function ietf_mud_type:add_definition()
+    local c = yang.basic_types.container:create('ietf-mud:mud')
+    c:add_node(yang.basic_types.uint8:create('mud-version', 'mud-version'))
+    c:add_node(yang.basic_types.inet_uri:create('mud-url', 'mud-url', true))
+    c:add_node(yang.basic_types.date_and_time:create('last-update'))
+    c:add_node(yang.basic_types.inet_uri:create('mud-signature', false))
+    c:add_node(yang.basic_types.uint8:create('cache-validity', false))
+    c:add_node(yang.basic_types.boolean:create('is-supported'))
+    c:add_node(yang.basic_types.string:create('systeminfo', false))
+    c:add_node(yang.basic_types.string:create('mfg-name', false))
+    c:add_node(yang.basic_types.string:create('model-name', false))
+    c:add_node(yang.basic_types.string:create('firmware-rev', false))
+    c:add_node(yang.basic_types.inet_uri:create('documentation', false))
+    c:add_node(yang.basic_types.notimplemented:create('extensions', false))
+
+    local from_device_policy = yang.basic_types.container:create('from-device-policy')
+    local access_lists = yang.basic_types.container:create('access-lists')
+    local access_lists_list = yang.basic_types.list:create('access-list')
+    -- todo: references
+    access_lists_list:add_list_node(yang.basic_types.string:create('name'))
+    access_lists:add_node(access_lists_list)
+    -- this seems to be a difference between the example and the definition
+    from_device_policy:add_node(access_lists)
+    c:add_node(from_device_policy)
+
+    local to_device_policy = yang.basic_types.container:create('to-device-policy')
+    local access_lists = yang.basic_types.container:create('access-lists')
+    local access_lists_list = yang.basic_types.list:create('access-list')
+    -- todo: references
+    access_lists_list:add_list_node(yang.basic_types.string:create('name'))
+    access_lists:add_node(access_lists_list)
+    -- this seems to be a difference between the example and the definition
+    to_device_policy:add_node(access_lists)
+    c:add_node(to_device_policy)
+
+    -- it's a presence container, so we *replace* the base node list instead of adding to it
+    self.yang_nodes = c.yang_nodes
+    for i,n in pairs(self.yang_nodes) do
+      n:setParent(self)
     end
-    return false
+  end
+-- class ietf_mud_type
+
+local mud_container = yang.util.subClass("mud_container", yang.basic_types.container)
+mud_container_mt = { __index = mud_container }
+  function mud_container:create(nodeName, mandatory)
+    local new_inst = yang.basic_types.container:create(nodeName, mandatory)
+    new_inst.typeName = "mud_container"
+    setmetatable(new_inst, mud_container_mt)
+    new_inst:add_definition()
+    return new_inst
+  end
+
+  function mud_container:add_definition()
+    self:add_node(ietf_mud_type:create('ietf-mud:mud', true))
+    self:add_node(ietf_access_control_list:create('ietf-access-control-list:acls', true))
+  end
+-- mud_container
+
+function ipMatchToRulePart(match_node)
+  rulepart = ""
+
+  if match_node:getName() == 'ietf-acldns:dst-dnsname' then
+      rulepart = rulepart .. "daddr " .. match_node:toData() .. " "
+  elseif match_node:getName() == 'ietf-acldns:src-dnsname' then
+      rulepart = rulepart .. "saddr " .. match_node:toData() .. " "
+  elseif match_node:getName() == 'protocol' then
+      -- this is done by virtue of it being an ipv6 option
+  elseif match_node:getName() == 'destination-port' then
+      -- TODO: check operator and/or range
+      rulepart = rulepart .. "dport " .. match_node:getActiveCase():getNode('port'):getValue() .. " "
+  else
+      error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
+  end
+
+  return rulepart
+end
+
+function getAddresses(name, family)
+  local result = {}
+  local hostaddrs = socket.dns.getaddrinfo(name)
+  if hostaddrs then
+    for i,a in pairs(hostaddrs) do
+      if family == nil or a.family == family then
+        table.insert(result, a.addr)
+      end
+    end
+  end
+  return result
+end
+
+function getIPv6Addresses(name)
+  return getAddresses(name, 'inet6')
+end
+
+function getIPv4Addresses(name)
+  return getAddresses(name, 'inet')
+end
+
+-- returns true if a node was (or should have been) replaced; this
+-- is so if the data contains a value for the dnsname_str in the
+-- family_str, whether or not it actually resolves to an ip address
+function replaceDNSNameNode(new_nodes, node, family_str, dnsname_str, network_source_or_dest, network_source_or_dest_v)
+  local nd = node:toData()
+  if nd[family_str] and nd[family_str][dnsname_str] then
+    local dnsname = nd[family_str][dnsname_str]
+    local addrs = getIPv6Addresses(dnsname)
+    if table.getn(addrs) == 0 then
+      print("WARNING: " .. dnsname .. " does not resolve to any " .. family_str .. " addresses")
+    end
+    for i,a in pairs(addrs) do
+      local nn = yang.util.deepcopy(node)
+      nd[family_str][dnsname_str] = nil
+      -- add new rule here ((TODO))
+      --nd[family_str][network_source_or_dest] = {}
+      if family_str == 'ipv6' then
+        --nd[family_str][network_source_or_dest][network_source_or_dest_v] = a .. "/128"
+        nd[family_str][network_source_or_dest_v] = a .. "/128"
+      else
+        nd[family_str][network_source_or_dest_v] = a .. "/32"
+      end
+      --nn:fromData_noerror(nd)
+      nn:clearData()
+      nn:fromData_noerror(nd)
+      --nn:fromData_noerror(nd)
+      table.insert(new_nodes, nn)
+    end
+    return true
+  end
+  return false
+end
+
+function aceToRulesIPTables(ace_node)
+  local nodes = ace_node:getAll()
+  -- small trick, use getParent() so we can have a path request on the entire list
+  local nodes = yang.findNodes(ace_node:getParent(), "ace[*]/matches")
+  local paths = {}
+
+  --
+  -- pre-processing
+  --
+
+  -- IPTables does not support hostname-based rules, so in the case of
+  -- a dnsname rule, we look up the address(es), and duplicate the rule
+  -- for each (v4 or v6 depending on match type)
+  local new_nodes = {}
+  for i,n in pairs(nodes) do
+    local nd = n:toData()
+    table.insert(paths, n:getPath())
+    print(json.encode(n:toData()))
+    -- need to make it into destination-ipv4-network, destination-ipv6-network,
+    -- source-ipv4-network or source-ipv6-network, depending on what it was
+    -- (ipv6/destination-dnsname, etc.)
+    local node_replaced = false
+    if replaceDNSNameNode(new_nodes, n, "ipv6", "ietf-acldns:src-dnsname", 'source-network', 'source-ipv6-network') then
+      node_replaced = true
+    end
+    if replaceDNSNameNode(new_nodes, n, "ipv6", "ietf-acldns:dst-dnsname", 'destination-network', 'destination-ipv6-network') then
+      node_replaced = true
+    end
+    if replaceDNSNameNode(new_nodes, n, "ipv4", "ietf-acldns:src-dnsname", 'source-network', 'source-ipv4-network') then
+      node_replaced = true
+    end
+    if replaceDNSNameNode(new_nodes, n, "ipv4", "ietf-acldns:dst-dnsname", 'destination-network', 'destination-ipv4-network') then
+      node_replaced = true
+    end
+
+    if not node_replaced then
+      table.insert(new_nodes, n)
+    end
+  end
+
+  --
+  -- conversion to actual rules
+  --
+  for i,n in pairs(new_nodes) do
+    table.insert(paths, n:getPath())
+    --print(json.encode(n:toData()))
+  end
+
+  return paths
 end
 
 
--- main module
-local luamud = {}
 
--- MUD description encapsulation
--- mud.data will contain the raw MUD (ietf-mud:mud) data
--- mud.acls will contain the encapsulated access lists defined
--- on the top-level of the MUD description. Note that these
--- can in theory contain more than defined in the actual policies
--- that are set
--- The actual policies are the acls in from_device_acls and
--- to_device_acls
---
--- This implementation follows
--- https://tools.ietf.org/html/draft-ietf-opsawg-mud-13
 local mud = {}
-mud.__index = mud
+mud_mt = { __index = mud }
+  -- create an empty mud container
+  function mud:create()
+    local new_inst = {}
+    setmetatable(new_inst, mud_mt)
+    -- default values and types go here
 
-function luamud.mud_create_from_file(file)
-    local f, err = io.open(file, "r")
-    if f == nil then return nil, err end
-    local f = assert(io.open(file, "rb"))
-    local content = f:read("*all")
-    f:close()
-    new_mud, err = luamud.mud_create(content)
-    return new_mud, err
-end
+    new_inst.mud_container = mud_container:create('mud-container', true)
+    return new_inst
+  end
 
-function luamud.mud_create(mud_json)
-    local new_mud = {}
-    setmetatable(new_mud, mud)
-    mud.data, err = cjson.decode(mud_json)
-    if mud.data == nil then return nil, err end
-
-    -- validate top-level info
-    new_mud, err = new_mud:validate()
-    if new_mud == nil then return nil, err end
-
-    -- read the acls from ietf-access-control-list:access-lists
-    -- and the from- and to-device policies
-    acl_count, err = new_mud:read_acls()
-    if acl_count == nil then return nil, err end
-
-    return new_mud
-end
-
--- returns the number of acls read, or nil,error
-function mud:read_acls()
-    self.acls = {}
-    if self.data["ietf-access-control-list:access-lists"] == nil then
-        -- just leave empty or error?
-        return nil, "Error, no element 'ietf-access-control-list:access-lists'"
+  function mud:parseJSON(json_str, file_name)
+    local json_data, err = json.decode(json_str);
+    if json_data == nil then
+      error(err)
     end
-    local acl_list = self.data["ietf-access-control-list:access-lists"]["acl"]
-    if acl_list == nil then
-        return nil, "Error, no element 'acl' in ietf-access-control-list:access-lists"
+    self.mud_container:fromData_noerror(yang.util.deepcopy(json_data))
+    if json_data['ietf-mud:mud'] == nil then
+      if file_name == nil then file_name = "<unknown>" end
+      error("Top-level node 'ietf-mud:mud' not found in " .. file_name)
     end
-    for _, acl_data in pairs(acl_list) do
-        acl_entry, err = luamud.acl_create(acl_data)
-        if acl_entry == nil then return nil, err end
-        table.insert(self.acls, acl_entry)
+  end
+
+  -- parse from json file
+  function mud:parseFile(json_file_name)
+    local file, err = io.open(json_file_name)
+    if file == nil then
+      error(err)
     end
-
-    self.from_device_acls = {}
-    if self.data["ietf-mud:mud"]["from-device-policy"] and
-       self.data["ietf-mud:mud"]["from-device-policy"]["access-lists"] and
-       self.data["ietf-mud:mud"]["from-device-policy"]["access-lists"]["access-list"] then
-        for _,policy_acl_desc in pairs(self.data["ietf-mud:mud"]["from-device-policy"]["access-lists"]["access-list"]) do
-            local pname = policy_acl_desc["name"]
-            local ptype = policy_acl_desc["type"]
-            if self:get_acl(pname) == nil then
-                return nil, "from-device ACL named '" .. pname .. "' not defined"
-            end
-            if ptype == nil then
-                self.from_device_acls[pname] = "any"
-            else
-                self.from_device_acls[pname] = ptype
-            end
-        end
-    end
-
-    self.to_device_acls = {}
-    if self.data["ietf-mud:mud"]["to-device-policy"] and
-       self.data["ietf-mud:mud"]["to-device-policy"]["access-lists"] and
-       self.data["ietf-mud:mud"]["to-device-policy"]["access-lists"]["access-list"] then
-        for _,policy_acl_desc in pairs(self.data["ietf-mud:mud"]["to-device-policy"]["access-lists"]["access-list"]) do
-            local pname = policy_acl_desc["name"]
-            local ptype = policy_acl_desc["type"]
-            if self:get_acl(pname) == nil then
-                return nil, "to-device ACL named '" .. pname .. "' not defined"
-            end
-            if ptype == nil then
-                self.to_device_acls[pname] = "any"
-            else
-                self.to_device_acls[pname] = ptype
-            end
-        end
-    end
-
-    return table.getn(self.acls)
-end
-
--- Validates and returns self if valid
--- Returns nil, err if not
-function mud:validate()
-    -- the main element should be "ietf-mud:mud"
-    mud_data = self.data["ietf-mud:mud"]
-    if mud_data == nil then
-        return nil, "Top-level element not 'ietf-mud:mud'"
-    end
-    -- must contain the following elements:
-    -- mud-url, systeminfo,
-    if mud_data["mud-url"] == nil then
-        return nil, "No element 'mud-url'"
-    end
-    if mud_data["last-update"] == nil then
-        return nil, "No element 'last-update'"
-    end
-    -- cache-validity is optional, default returned by getter
-    if mud_data["is-supported"] == nil then
-        return nil, "No element 'is-supported'"
-    end
-    -- systeminfo is optional and has no default
-    -- extensions is optional and has no default (should we set empty list?)
-
-    -- check if the acls in the policies are actually defined
+    local contents = file:read( "*a" )
+    io.close( file )
+    self:parseJSON(contents)
+  end
+_M.mud = mud
 
 
-    --return "validation not implemented"
-    return self
-end
-
--- essentially, all direct functions are helper functions, since
--- we keep the internal data as a straight conversion from json
-function mud:get_mud_url()
-    return self.data["ietf-mud:mud"]["mud-url"]
-end
-
--- warning: returns a string
-function mud:get_last_update()
-    return self.data["ietf-mud:mud"]["last-update"]
-end
-
-function mud:get_cache_validity()
-    if self.data["ietf-mud:mud"]["cache-validity"] ~= nil then
-        return self.data["ietf-mud:mud"]["cache-validity"]
-    else
-        return 48
-    end
-end
-
-function mud:get_is_supported()
-    return self.data["ietf-mud:mud"]["is-supported"]
-end
-
-function mud:get_systeminfo()
-    if self.data["ietf-mud:mud"]["systeminfo"] ~= nil then
-        return self.data["ietf-mud:mud"]["systeminfo"]
-    else
-        return nil
-    end
-end
-
-function mud:get_acls()
-    return self.acls
-end
-
-function mud:get_acl(name)
-    for _,acl in pairs(self.acls) do
-        if acl:get_name() == name then return acl end
-    end
-    return nil
-end
-
--- this just returns the table acl_name->acl_type
--- NOT the actual acls (to get those, use mud:get_acl(name)
-function mud:get_from_device_acls()
-    return self.from_device_acls
-end
-
--- this just returns the table acl_name->acl_type
--- NOT the actual acls (to get those, use mud:get_acl(name)
-function mud:get_to_device_acls()
-    return self.to_device_acls
-end
-
-function mud:check_operator(value_to_check, value_to_match, operator)
-    if operator == "eq" then return value_to_check == value_to_match
-    elseif operator == "neq" then return value_to_check ~= value_to_match
-    elseif operator == "gt" then return value_to_check > value_to_match
-    elseif operator == "lt" then return value_to_check < value_to_match
-    else
-        return nil, "Unknown operator: " .. operator
-    end
-end
-
-
-function mud:get_policy_actions(from_device, ips, domains, from_port, to_port)
-    local acls
-    if from_device then
-        acls = self:get_from_device_acls()
-    else
-        acls = self:get_to_device_acls()
-    end
-    for acl_name,_ in pairs(acls) do
-        acl = self:get_acl(acl_name)
-        for _,rule in pairs(acl:get_rules()) do
-            for acl_type,acl_matches in pairs(rule:get_matches()) do
-                for match_type, match_value in pairs(acl_matches) do
-                    if match_type == "destination-port" then
-                        result, err = mud:check_operator(to_port, match_value["port"], match_value["operator"])
-                        if result == nil then return nil, err
-                        elseif result then
-                            return rule:get_actions()
-                        end
-                    elseif match_type == "source-port" then
-                        result, err = mud:check_operator(from_port, match_value["port"], match_value["operator"])
-                        if result == nil then return nil, err
-                        elseif result then
-                            return rule:get_actions()
-                        end
-                    elseif match_type == "ietf-mud:direction-initiated" then
-                        -- TODO
-                        print("[TODO]: direction-initiated")
-                    elseif match_type == "ietf-acldns:dst-dnsname" then
-                        -- TODO
-                        print("[TODO]: acldns")
-                    else
-                        print("[Error] unimplemented match type: " .. match_type)
-                    end
-                end
-            end
-        end
-    end
-    return nil
-end
-
-function mud:to_json()
-    return cjson.encode(self.data)
-end
-
-
---
--- ACL encapsulation
--- perhaps we should move this to its own module
---
--- This is the element of which a list is defined in
--- ietf-access-control-list:access-lists/acl
---
--- This implementation follows
--- https://tools.ietf.org/html/draft-ietf-opsawg-mud-13
--- which extends the model at
--- https://tools.ietf.org/html/draft-ietf-netmod-acl-model-14
-local acl = {}
-acl.__index = acl
-
--- Create an acl structure using raw objects (ie the json data that
--- has already been decoded)
--- The data object is the element that is defined with the name
--- ietf-access-control-list:access-lists
-function luamud.acl_create(data)
-    local new_acl = {}
-    setmetatable(new_acl, acl)
-    new_acl.data = data
-    new_acl.rules = {}
-    new_acl, err = new_acl:validate()
-    if new_acl == nil then return nil, err end
-    return new_acl
-end
-
-function acl:validate()
-    -- the top-level element should be "acl"
-    if self.data["name"] == nil then
-        return nil, "No element 'name' in access control list"
-    end
-    if self.data["type"] == nil then
-        return nil, "No element 'type' in access control list"
-    end
-    -- todo: check type against enum
-    local entries = self.data["aces"]
-    if entries == nil then
-        return nil, "No element 'aces' in access control list"
-    end
-    local ace = entries["ace"]
-    if entries == nil then
-        return nil, "No element 'ace' in aces"
-    end
-    for _, ace_e in pairs(ace) do
-        -- todo: should this be its own object as well?
-        local rule, err = luamud.rule_create(ace_e)
-        if rule == nil then return nil, err end
-        table.insert(self.rules, rule)
-    end
-    return self
-end
-
-function acl:get_name()
-    return self.data["name"]
-end
-
-function acl:get_type()
-    return self.data["type"]
-end
-
-function acl:get_rules()
-    return self.rules
-end
-
---
--- end of ACL encapsulation
---
-
---
--- Rule encapsulation
---
--- todo: make this into separate module?
---
-local rule = {}
-rule.__index = rule
-
-luamud.acl_types = {
-    "any",
-    "mud",
-    "icmp",
-    "ipv6",
-    "tcp",
-    "any",
-    "udp",
-    "ipv4",
-    "ipv6"
-}
-
-luamud.action_types = {
-    "forwarding"
-}
-
-luamud.actions = {
-    "accept",
-    "reject",
-    "drop"
-}
-
--- 'supported' for now; we will implement them one by one
-luamud.supported_match_types = {
-    "ietf-mud:direction-initiated",
-    "ietf-acldns:src-dnsname",
-    "ietf-acldns:dst-dnsname",
-    "protocol",
-    "source-port",
-    "destination-port",
-}
-
--- Create an acl structure using raw objects (ie the json data that
--- has already been decoded)
--- The data object is the list element under "ace"
-function luamud.rule_create(data, rule_type)
-    local new_rule = {}
-    setmetatable(new_rule, rule)
-    rule.data = data
-    rule.type = rule_type
-    rule.matches = {}
-    rule.actions = {}
-    rule, err = rule:validate()
-    if rule == nil then return nil, err end
-    return rule
-end
-
-function rule:validate()
-    if self.data["name"] == nil then
-        return nil, "No element 'name' in rule"
-    end
-    if self.data["matches"] == nil then
-        return nil, "No element 'matches' in rule " .. self.data["name"]
-    end
-    -- acl should be one of: any-acl, mud-acl, icmp-acl, ipv6-acl,
-    -- tcp-acl, any-acl, udp-acl, ipv4-acl, and ipv6-acl
-    for acl_type, acl_matches in pairs(self.data["matches"]) do
-        if not has_value(luamud.acl_types, acl_type) then
-            return nil, "Unknown acl type: " .. acl_type
-        end
-        for match_type, match_value in pairs(acl_matches) do
-            if not has_value(luamud.supported_match_types, match_type) then
-                return nil, "Unsupported match type: " .. match_type
-            end
-            if match_type == "ietf-mud:direction-initiated" then
-                if not has_value({"from-device", "to-device"}, match_value) then
-                    return nil, "Bad value for ietf-mud:direction_initiated: " .. match_value
-                end
-            elseif match_type == "ietf-acldns:src-dnsname" then
-                -- what to check here?
-            elseif match_type == "ietf-acldns:dst-dnsname" then
-                -- what to check here?
-            elseif match_type == "protocol" then
-                if not type(match_value) == "number" then
-                    return nil, "Bad value for protocol match rule: " .. match_value
-                end
-            elseif match_type == "source-port-range" then
-                -- should be a table with 'lower-port' (int, mandatory),
-                -- 'upper-port' (int, optional), and 'operation' (optional)
-                if match_value['lower-port'] == nil then
-                    return nil, "Missing 'lower-port' value in source-port-range match rule"
-                elseif type(match_value['lower-port']) ~= "number" then
-                    return nil, "Bad value for source-port-range lower-port: " .. match_value['lower-port']
-                end
-                if match_value['upper-port'] ~= nil and
-                   type(match_value['upper-port']) ~= "number" then
-                    return nil, "Bad value for source-port-range upper-port: " .. match_value['upper-port']
-                end
-            elseif match_type == "destination-port-range" then
-                -- should be a table with 'lower-port' (int, mandatory),
-                -- 'upper-port' (int, optional), and 'operation' (optional)
-                if match_value['lower-port'] == nil then
-                    return nil, "Missing 'lower-port' value in source-port-range match rule"
-                elseif type(match_value['lower-port']) ~= "number" then
-                    return nil, "Bad value for source-port-range match rule: " .. match_value['lower-port']
-                end
-                if match_value['upper-port'] ~= nil and
-                   type(match_value['upper-port']) ~= "number" then
-                    return nil, "Bad value for source-port-range upper-port: " .. match_value['upper-port']
-                end
-            --elseif match_type == "" then
-            end
-        end
-    end
-    -- TODO: further match rules; dnsname, port-range, dscp, etc.
-    -- also check for specifics in list...
-
-    if self.data["actions"] == nil then
-        return nil, "No element 'actions' in rule " .. self.data["name"]
-    end
-    for action_type, action in pairs(self.data["actions"]) do
-        if not has_value(luamud.action_types, action_type) then
-            return nil, "Unknown action type: " .. action_type
-        end
-        --if action_type == "ietf-mud:direction-initiated" and
-        --   not has_value(luamud.action_direction_initiated, action_
-
-    end
-    return self
-end
-
-function rule:get_name()
-    return self.data["name"]
-end
-
-function rule:get_matches()
-    return self.data["matches"]
-end
-
-function rule:get_actions()
-    return self.data["actions"]
-end
-
-return luamud
+return _M

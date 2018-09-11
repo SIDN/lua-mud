@@ -1,6 +1,6 @@
 #!/usr/bin/lua
 
-local mu = require("mudv2")
+local mu = require("mud")
 local yang = require("yang")
 local lu = require("luaunit")
 
@@ -62,7 +62,6 @@ TestMudFileReader = {} --class
     self.a:parseFile("../examples/example_from_draft.json")
     local paths = {}
     for i,n in pairs(self.a.mud_container:getAll()) do
-      --print("[XX] calling getpath[] " .. i)
       table.insert(paths, n:getPath())
     end
     local expected = {
