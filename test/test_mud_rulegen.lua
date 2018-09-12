@@ -37,8 +37,15 @@ TestMudRulegen = {} --class
   end
 
   function TestMudRulegen:testIPTables()
+    local b = mu.mud.create()
+    b:parseFile("../examples/example_cloudservice.json")
+
     local rb = iptables_rb.create_rulebuilder()
-    local rules = rb:build_rules(self.a)
+    local rules = rb:build_rules(b)
+    --local rules = rb:build_rules(self.a)
+    for i,r in pairs(rules) do
+      print("[XX] RULE: " .. r)
+    end
   end
 -- class testMud
 

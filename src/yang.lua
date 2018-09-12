@@ -16,6 +16,7 @@ _M.complex_types = complex_types
 
 function _M.findNodeWithProperty(base_node, node_to_find, property_name, property_value)
     for i,potential_node in pairs(base_node:getAll()) do
+        print("[XX] trying " .. potential_node:getName() .. " (looking for " .. node_to_find .. ")")
         if potential_node:getName() == node_to_find then
             if potential_node:isa(_M.basic_types.container) then
                 if potential_node:hasNode(property_name) then

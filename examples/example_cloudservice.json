@@ -25,7 +25,7 @@
       }
     }
   },
-  "ietf-access-control-list:access-lists": {
+  "ietf-access-control-list:acls": {
     "acl": [
       {
         "aces": {
@@ -35,8 +35,8 @@
                 "forwarding": "accept"
               },
               "matches": {
-                "ipv6": {
-                  "ietf-acldns:src-dnsname": "test.com",
+                "ipv4": {
+                  "ietf-acldns:src-dnsname": "ipv4.tjeb.nl",
                   "protocol": 6
                 },
                 "tcp": {
@@ -62,8 +62,8 @@
                 "forwarding": "accept"
               },
               "matches": {
-                "ipv6": {
-                  "ietf-acldns:dst-dnsname": "test.com",
+                "ipv4": {
+                  "ietf-acldns:dst-dnsname": "ipv4.tjeb.nl",
                   "protocol": 6
                 },
                 "tcp": {

@@ -235,25 +235,6 @@ mud_container_mt = { __index = mud_container }
   end
 -- mud_container
 
-function ipMatchToRulePart(match_node)
-  rulepart = ""
-
-  if match_node:getName() == 'ietf-acldns:dst-dnsname' then
-      rulepart = rulepart .. "daddr " .. match_node:toData() .. " "
-  elseif match_node:getName() == 'ietf-acldns:src-dnsname' then
-      rulepart = rulepart .. "saddr " .. match_node:toData() .. " "
-  elseif match_node:getName() == 'protocol' then
-      -- this is done by virtue of it being an ipv6 option
-  elseif match_node:getName() == 'destination-port' then
-      -- TODO: check operator and/or range
-      rulepart = rulepart .. "dport " .. match_node:getActiveCase():getNode('port'):getValue() .. " "
-  else
-      error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
-  end
-
-  return rulepart
-end
-
 function getAddresses(name, family)
   local result = {}
   local hostaddrs = socket.dns.getaddrinfo(name)
@@ -266,97 +247,6 @@ function getAddresses(name, family)
   end
   return result
 end
-
-function getIPv6Addresses(name)
-  return getAddresses(name, 'inet6')
-end
-
-function getIPv4Addresses(name)
-  return getAddresses(name, 'inet')
-end
-
--- returns true if a node was (or should have been) replaced; this
--- is so if the data contains a value for the dnsname_str in the
--- family_str, whether or not it actually resolves to an ip address
-function replaceDNSNameNode(new_nodes, node, family_str, dnsname_str, network_source_or_dest, network_source_or_dest_v)
-  local nd = node:toData()
-  if nd[family_str] and nd[family_str][dnsname_str] then
-    local dnsname = nd[family_str][dnsname_str]
-    local addrs = getIPv6Addresses(dnsname)
-    if table.getn(addrs) == 0 then
-      print("WARNING: " .. dnsname .. " does not resolve to any " .. family_str .. " addresses")
-    end
-    for i,a in pairs(addrs) do
-      local nn = yang.util.deepcopy(node)
-      nd[family_str][dnsname_str] = nil
-      -- add new rule here ((TODO))
-      --nd[family_str][network_source_or_dest] = {}
-      if family_str == 'ipv6' then
-        --nd[family_str][network_source_or_dest][network_source_or_dest_v] = a .. "/128"
-        nd[family_str][network_source_or_dest_v] = a .. "/128"
-      else
-        nd[family_str][network_source_or_dest_v] = a .. "/32"
-      end
-      --nn:fromData_noerror(nd)
-      nn:clearData()
-      nn:fromData_noerror(nd)
-      --nn:fromData_noerror(nd)
-      table.insert(new_nodes, nn)
-    end
-    return true
-  end
-  return false
-end
-
-function aceToRulesIPTables(ace_node)
-  local nodes = ace_node:getAll()
-  -- small trick, use getParent() so we can have a path request on the entire list
-  local nodes = yang.findNodes(ace_node:getParent(), "ace[*]/matches")
-  local paths = {}
-
-  --
-  -- pre-processing
-  --
-
-  -- IPTables does not support hostname-based rules, so in the case of
-  -- a dnsname rule, we look up the address(es), and duplicate the rule
-  -- for each (v4 or v6 depending on match type)
-  local new_nodes = {}
-  for i,n in pairs(nodes) do
-    local nd = n:toData()
-    table.insert(paths, n:getPath())
-    -- need to make it into destination-ipv4-network, destination-ipv6-network,
-    -- source-ipv4-network or source-ipv6-network, depending on what it was
-    -- (ipv6/destination-dnsname, etc.)
-    local node_replaced = false
-    if replaceDNSNameNode(new_nodes, n, "ipv6", "ietf-acldns:src-dnsname", 'source-network', 'source-ipv6-network') then
-      node_replaced = true
-    end
-    if replaceDNSNameNode(new_nodes, n, "ipv6", "ietf-acldns:dst-dnsname", 'destination-network', 'destination-ipv6-network') then
-      node_replaced = true
-    end
-    if replaceDNSNameNode(new_nodes, n, "ipv4", "ietf-acldns:src-dnsname", 'source-network', 'source-ipv4-network') then
-      node_replaced = true
-    end
-    if replaceDNSNameNode(new_nodes, n, "ipv4", "ietf-acldns:dst-dnsname", 'destination-network', 'destination-ipv4-network') then
-      node_replaced = true
-    end
-
-    if not node_replaced then
-      table.insert(new_nodes, n)
-    end
-  end
-
-  --
-  -- conversion to actual rules
-  --
-  for i,n in pairs(new_nodes) do
-    table.insert(paths, n:getPath())
-  end
-
-  return paths
-end
-
 
 
 local mud = {}

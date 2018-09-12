@@ -28,7 +28,29 @@ local yang = require("yang")
 --
 -- Helper functions
 --
-function aceToRules(ace_node)
+
+local function ipMatchToRulePart(match_node)
+  rulepart = ""
+
+  if match_node:getName() == 'ietf-acldns:dst-dnsname' then
+      rulepart = rulepart .. "daddr " .. match_node:toData() .. " "
+  elseif match_node:getName() == 'ietf-acldns:src-dnsname' then
+      rulepart = rulepart .. "saddr " .. match_node:toData() .. " "
+  elseif match_node:getName() == 'protocol' then
+      -- this is done by virtue of it being an ipv6 option
+  elseif match_node:getName() == 'destination-port' then
+      -- TODO: check operator and/or range
+      rulepart = rulepart .. "dport " .. match_node:getActiveCase():getNode('port'):getValue() .. " "
+  else
+      error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
+  end
+
+  return rulepart
+end
+
+
+
+local function aceToRules(ace_node)
     local rules = {}
     for i,ace in pairs(ace_node:getValue()) do
         local rulestart = "nft add rule inet "
@@ -102,7 +124,7 @@ function aceToRules(ace_node)
     return rules
 end
 
-function makeRules(mud)
+local function makeRules(mud)
   -- first do checks, etc.
   -- TODO ;)
 
@@ -138,7 +160,7 @@ end
 local _M = {}
 
 local RuleBuilder = {}
-RuleBuilder_mt = { __index = RuleBuilder }
+local RuleBuilder_mt = { __index = RuleBuilder }
 
 function _M.create_rulebuilder()
   local new_inst = {}
