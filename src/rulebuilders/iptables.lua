@@ -65,9 +65,9 @@ local function ipMatchToRulePart(match_node, match)
   elseif match_node:getName() == 'protocol' then
       -- this is done by virtue of it being an ipv6 option
       if match_node:getValue() == 6 then
-        rulepart = rulepart .. "--tcp "
+        rulepart = rulepart .. "-p tcp "
       elseif match_node:getValue() == 17 then
-        rulepart = rulepart .. "--udp "
+        rulepart = rulepart .. "-p udp "
       else
         error("Unsupport protocol value: " .. match_node:getValue())
       end
@@ -79,10 +79,10 @@ local function ipMatchToRulePart(match_node, match)
       rulepart = rulepart .. "--sport " .. match_node:getActiveCase():getNode('port'):getValue() .. " "
   elseif match_node:getName() == 'destination-network' then
       -- TODO: check operator and/or range
-      rulepart = rulepart .. "-d  " .. match_node:getActiveCase():getValue() .. " "
+      rulepart = rulepart .. "-d " .. match_node:getActiveCase():getValue() .. " "
   elseif match_node:getName() == 'source-network' then
       -- TODO: check operator and/or range
-      rulepart = rulepart .. "-s  " .. match_node:getActiveCase():getValue() .. " "
+      rulepart = rulepart .. "-s " .. match_node:getActiveCase():getValue() .. " "
   else
       error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
   end
@@ -111,7 +111,7 @@ function tcpMatchToRulePart(match_node, match)
 
           local port_case = match_node:getChild():getActiveCase()
           -- TODO: chech which case it is, for now we assume operator->eq
-          
+
           rulepart = rulepart .. "--dport " .. port_case:getNode("port"):getValue() .. " "
       else
           error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
@@ -171,20 +171,20 @@ local function aceToRulesIPTables(ace_node)
 
   --return paths
     local rules = {}
-    
+
     for i,ace in pairs(new_nodes) do
       print("[XX] CREATING NRULE FROM: " .. json.encode(ace:toData()))
       local rule = ""
-      local chain = "-a FORWARD"
+      local chain = "-A FORWARD"
       local cmd = "iptables "
       local rulematches = ""
-      
+
       print("[XX] NODE TO CONSIDER '" .. ace:getName() .. "': " .. json.encode(ace:toData()))
       for j,aceNode in pairs(ace.yang_nodes) do
         if aceNode:hasValue() then
           local choice = aceNode:getActiveCase()
           if choice:getName() == 'ipv4' then
-            cmd = "ip6tables"
+            cmd = "iptables"
             for j,match_node in pairs(choice.yang_nodes) do
               if match_node:hasValue() then
                 print("[XX] handling " .. json.encode(match_node:toData()))
@@ -221,17 +221,17 @@ local function aceToRulesIPTables(ace_node)
       if action_d == "accept" then
         action = "-j ACCEPT"
       end
-      
+
       print("[XX] ACTION: " .. json.encode(ace:getParent():getNode('actions'):getType()))
-      
-      
-      local rule = cmd .. " " .. rulematches .. action
+
+
+      local rule = cmd .. " " .. chain .. " " .. rulematches .. action
       table.insert(rules, rule)
       print("[XX] THE NRULE IS: " .. rule)
       print("[XX] THAT IS THE NRULE")
     end
 
-    
+
     return rules
 end
 

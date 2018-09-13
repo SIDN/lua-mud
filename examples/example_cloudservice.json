@@ -52,7 +52,7 @@
           ]
         },
         "name": "mud-76100-v6to",
-        "type": "ipv6-acl-type"
+        "type": "ipv4-acl-type"
       },
       {
         "aces": {
@@ -79,7 +79,7 @@
           ]
         },
         "name": "mud-76100-v6fr",
-        "type": "ipv6-acl-type"
+        "type": "ipv4-acl-type"
       }
     ]
   }

@@ -5,6 +5,9 @@ local basic_types = require("yang.basic_types")
 --
 -- Note: the complex_types subclass is provisionary; we should probably have namespaced
 -- complex types, possibly directly derived from yang files
+--
+-- For now, we are still in the process of discovery regarding the best way to interface this
+-- in Lua, so we hard-define the types we need.
 
 local _M = {}
 
@@ -33,7 +36,7 @@ acl_type_mt = { __index = acl_type }
 _M.acl_type = acl_type
 
 function splitfoo(value)
-  return 
+  return
 end
 
 -- based on https://tools.ietf.org/html/rfc6021
@@ -114,4 +117,168 @@ inet_ipv6_prefix_mt = { __index = inet_ipv6_prefix }
   end
 _M.inet_ipv6_prefix = inet_ipv6_prefix
 
+-- ietf-access-control-list is a specialized type; the base of it is a container
+local ietf_access_control_list = util.subClass("ietf_access_control_list", basic_types.container)
+ietf_access_control_list_mt = { __index = ietf_access_control_list }
+  function ietf_access_control_list:create(nodeName, mandatory)
+    local new_inst = basic_types.container:create(nodeName, mandatory)
+    -- additional step: add the type name
+    new_inst.typeName = "acl"
+    setmetatable(new_inst, ietf_access_control_list_mt)
+    new_inst:add_definition()
+    return new_inst
+  end
+
+  function ietf_access_control_list:add_definition()
+    local acl_list = basic_types.list:create('acl')
+    acl_list:add_list_node(basic_types.string:create('name', true))
+    acl_list:add_list_node(acl_type:create('type', false))
+
+    local aces = basic_types.container:create('aces')
+    local ace_list = basic_types.list:create('ace')
+    ace_list:add_list_node(basic_types.string:create('name'))
+    --local matches = basic_types.choice:create('matches')
+    local matches = basic_types.container:create('matches')
+
+    local matches_eth = basic_types.container:create('eth')
+    matches_eth:add_node(basic_types.mac_address:create('destination-mac-address'))
+    matches_eth:add_node(basic_types.mac_address:create('destination-mac-address-mask'))
+    matches_eth:add_node(basic_types.mac_address:create('source-mac-address'))
+    matches_eth:add_node(basic_types.mac_address:create('source-mac-address-mask'))
+    matches_eth:add_node(basic_types.eth_ethertype:create('ethertype'))
+
+    local matches_ipv4 = basic_types.container:create('ipv4')
+    matches_ipv4:add_node(basic_types.inet_dscp:create('dscp', false))
+    matches_ipv4:add_node(basic_types.uint8:create('ecn', false))
+    matches_ipv4:add_node(basic_types.uint16:create('length', false))
+    matches_ipv4:add_node(basic_types.uint8:create('ttl', false))
+    matches_ipv4:add_node(basic_types.uint8:create('protocol', false))
+    matches_ipv4:add_node(basic_types.uint8:create('ihl', false))
+    matches_ipv4:add_node(basic_types.bits:create('flags', false))
+    matches_ipv4:add_node(basic_types.uint16:create('offset', false))
+    matches_ipv4:add_node(basic_types.uint16:create('identification', false))
+    -- TODO: -network
+    local ipv4_destination_network_choice = basic_types.choice:create('destination-network', false, true)
+    ipv4_destination_network_choice:set_named(false)
+    local ipv4prefix = inet_ipv4_prefix:create('destination-ipv4-network')
+    ipv4_destination_network_choice:add_case('destination-ipv4-network', ipv4prefix)
+    matches_ipv4:add_node(ipv4_destination_network_choice, false)
+    local ipv4_source_network_choice = basic_types.choice:create('source-network', false, true)
+    ipv4_source_network_choice:set_named(false)
+    -- this should be type ipv4-prefix
+    ipv4_source_network_choice:add_case('source-ipv4-network', inet_ipv4_prefix:create('source-ipv4-network'))
+    matches_ipv4:add_node(ipv4_source_network_choice, false)
+
+    -- mud augmentation
+    matches_ipv4:add_node(basic_types.string:create('ietf-acldns:dst-dnsname', false))
+    matches_ipv4:add_node(basic_types.string:create('ietf-acldns:src-dnsname', false))
+
+    local matches_ipv6 = basic_types.container:create('ipv6')
+    matches_ipv6:add_node(basic_types.inet_dscp:create('dscp', false))
+    matches_ipv6:add_node(basic_types.uint8:create('ecn', false))
+    matches_ipv6:add_node(basic_types.uint16:create('length', false))
+    matches_ipv6:add_node(basic_types.uint8:create('ttl', false))
+    matches_ipv6:add_node(basic_types.uint8:create('protocol', false))
+    matches_ipv6:add_node(basic_types.string:create('ietf-acldns:dst-dnsname', false))
+    matches_ipv6:add_node(basic_types.string:create('ietf-acldns:src-dnsname', false))
+    -- TODO: -network
+    local ipv6_destination_network_choice = basic_types.choice:create('destination-network', false, true)
+    ipv6_destination_network_choice:set_named(false)
+    ipv6_destination_network_choice:add_case('destination-ipv6-network', inet_ipv6_prefix:create('destination-ipv6-network', false))
+    matches_ipv6:add_node(ipv6_destination_network_choice)
+    local ipv6_source_network_choice = basic_types.choice:create('source-network', false, true)
+    ipv6_source_network_choice:set_named(false)
+    -- this should be type ipv6-prefix
+    ipv6_source_network_choice:add_case('source-ipv6-network', inet_ipv6_prefix:create('source-ipv6-network'))
+    matches_ipv6:add_node(ipv6_source_network_choice, false)
+    -- TODO: flow-label
+
+    local matches_tcp = basic_types.container:create('tcp')
+    matches_tcp:add_node(basic_types.uint32:create('sequence-number', false))
+    matches_tcp:add_node(basic_types.uint32:create('acknowledgement-number', false))
+    matches_tcp:add_node(basic_types.uint8:create('offset', false))
+    matches_tcp:add_node(basic_types.uint8:create('reserved', false))
+
+    -- new choice realization
+    -- todo: is this mandatory?
+    local source_port = basic_types.container:create('source-port', false)
+    local source_port_choice = basic_types.choice:create('source-port', false)
+
+    local source_port_range = basic_types.container:create('port-range', false)
+    source_port_range:add_node(basic_types.uint16:create('lower-port'))
+    source_port_range:add_node(basic_types.uint16:create('upper-port'))
+    source_port_choice:add_case('range', source_port_range)
+
+    local source_port_operator = basic_types.container:create('port-operator', false)
+    source_port_operator:add_node(basic_types.string:create('operator', false))
+    source_port_operator:add_node(basic_types.uint16:create('port'))
+    source_port_choice:add_case('operator', source_port_operator)
+
+    source_port:add_node(source_port_choice)
+    matches_tcp:add_node(source_port)
+
+    local destination_port = basic_types.container:create('destination-port', false)
+    local destination_port_choice = basic_types.choice:create('destination-port2', false)
+
+    local destination_port_range = basic_types.container:create('port-range', false)
+    destination_port_range:add_node(basic_types.uint16:create('lower-port'))
+    destination_port_range:add_node(basic_types.uint16:create('upper-port'))
+    destination_port_choice:add_case('range', destination_port_range)
+
+    local destination_port_operator = basic_types.container:create('port-operator', false)
+    destination_port_operator:add_node(basic_types.string:create('operator', false))
+    destination_port_operator:add_node(basic_types.uint16:create('port'))
+    destination_port_choice:add_case('operator', destination_port_operator)
+
+    destination_port:add_node(destination_port_choice)
+    matches_tcp:add_node(destination_port)
+
+    -- this is an augmentation from draft-mud
+    -- TODO: type 'direction' (enum?)
+    matches_tcp:add_node(basic_types.string:create('ietf-mud:direction-initiated', false))
+
+    local matches_udp = basic_types.container:create('udp')
+    matches_udp:add_node(basic_types.uint16:create('length', false))
+    matches_udp:add_node(util.deepcopy(source_port_choice))
+    matches_udp:add_node(util.deepcopy(destination_port_choice))
+
+    local matches_l1_choice = basic_types.choice:create('l1', false)
+    local matches_l2_choice = basic_types.choice:create('l2', false)
+    local matches_l3_choice = basic_types.choice:create('l3', false)
+    local matches_l4_choice = basic_types.choice:create('l4', false)
+    local matches_l5_choice = basic_types.choice:create('l5', false)
+
+    matches_l1_choice:add_case('eth', matches_eth)
+    matches_l3_choice:add_case('tcp', matches_tcp)
+    matches_l4_choice:add_case('udp', matches_udp)
+    matches_l5_choice:add_case('ipv6', matches_ipv6)
+    matches_l2_choice:add_case('ipv4', matches_ipv4)
+
+    matches:add_node(matches_l1_choice)
+    matches:add_node(matches_l3_choice)
+    matches:add_node(matches_l4_choice)
+    matches:add_node(matches_l5_choice)
+    matches:add_node(matches_l2_choice)
+
+    ace_list:add_list_node(matches)
+    aces:add_node(ace_list)
+
+    local actions = basic_types.container:create('actions')
+    -- todo identityref
+    actions:add_node(basic_types.string:create('forwarding'))
+    actions:add_node(basic_types.string:create('logging', false))
+
+    ace_list:add_list_node(actions)
+    acl_list:add_list_node(aces)
+
+    -- report: discrepancy between example and definition? (or maybe just tree)
+    -- TODO: look up what to do with singular/plural, maybe that is stated somewhere
+    self:add_node(acl_list)
+  end
+_M.ietf_access_control_list = ietf_access_control_list
+-- class ietf_access_control_list
+
+
+
 return _M
+
