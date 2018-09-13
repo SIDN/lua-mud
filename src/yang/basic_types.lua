@@ -60,6 +60,12 @@ local YangNode_mt = { __index = YangNode }
   -- tries to set data. returns true if success, fail if not
   function YangNode:fromData_noerror(data)
     r,err = pcall(self.setValue, self, data)
+    if r then
+        print("[XX] [BASE] fromData success, data: " .. json.encode(self:toData()))
+    else
+        print("[XX] [BASE] fromData error, data: " .. json.encode(data))
+        print("[XX] [BASE] the error was: " .. err)
+    end
     return r
   end
 
@@ -334,12 +340,13 @@ _M.notimplemented = notimplemented
 -- essentially, it's the 'main' holder of definitions and data
 local container = util.subClass("container", _M.YangNode)
 container_mt = { __index = container }
-  function container:create(nodeName, mandatory)
+  function container:create(nodeName, mandatory, unnamed)
     local new_inst = _M.YangNode:create("container", nodeName, mandatory)
     setmetatable(new_inst, container_mt)
     new_inst.yang_nodes = {}
     -- a container's value is contained in its yang nodes
     new_inst.value = nil
+    new_inst.unnamed = unnamed
     return new_inst
   end
 
@@ -411,6 +418,7 @@ container_mt = { __index = container }
   function container:toData()
     local result = {}
     for name,value in pairs(self.yang_nodes) do
+      print("[XX] [CONTAINER] Trying yang-node " .. value:getName() .. " in " .. self:getName())
       local v
       -- if the child element is a choice, the name is not the name of the element, but of its
       -- active case
@@ -418,7 +426,28 @@ container_mt = { __index = container }
       if value:isa(_M.choice) then
         if value:getActiveCase() ~= nil then
           actual_name = value:getActiveCase():getName()
+          print("[XX] [CONTAINER] Choice in container '"..self:getName().."' the actual name is: " .. actual_name)
+          print("[XX] [CONTAINER] its toData() results in: " .. json.encode(value:toData()))
           v = value:toData()
+          -- we differentiate between 'single-choice' containers (which don't include the choice subcontainer names)
+          -- and 'multi-choice' containers (which do)
+          if value:is_single_choice() then
+            print("[XX] [CONTAINER] It is a single choice within its container, so returning directly")
+            --return value:toData()
+            if value.unnamed ~= nil then
+                print("[XX] CONTAINER CHILD " .. value:getName() .. " IS UNNAMED CHOICE, DATA: " .. json.encode(v))
+            end
+            local case = value:getActiveCase()
+            if case.unnamed then
+                return case:toData()
+                --v = case:toData()
+                --error("bijna")
+            end
+            if actual_name == "port-operator" then
+                --error('ja hier')
+            end
+            v = value:toData()
+          end
         else
           v = nil
         end
@@ -427,10 +456,22 @@ container_mt = { __index = container }
       end
       -- exclude empty nodes
       if v ~= nil and (type(v) ~= 'table' or tablelength(v) > 0) then
-          result[actual_name] = v
+        print("[XX] FOUND")
+        if value.unnamed ~= nil then
+            print("[XX] CONTAINER CHILD " .. value:getName() .. " IS UNNAMED, DATA: " .. json.encode(v))
+        else
+            print("[XX] CONTAINER CHILD " .. value:getName() .. " IS NOT UNNAMED, DATA: " .. json.encode(v))
+        end
+        result[actual_name] = v
       end
     end
-    return result
+
+    if self.unnamed ~= nil then
+        print("[XX] CONTAINER I AM UNNAMED, DATA: " .. json.encode(result))
+        return result
+    else
+        return result
+    end
   end
 
   function container:getNodeNames()
@@ -634,10 +675,11 @@ local choice = util.subClass("choice", _M.YangNode)
 choice_mt = { __index = choice }
 
   -- note that nodename is only used in the schema, not the data
-  function choice:create(nodeName, mandatory)
+  function choice:create(nodeName, mandatory, single_choice)
     local new_inst = _M.YangNode:create("choice", nodeName, mandatory)
     setmetatable(new_inst, choice_mt)
     new_inst.cases = {}
+    new_inst.single_choice = single_choice
     return new_inst
   end
 
@@ -646,6 +688,10 @@ choice_mt = { __index = choice }
   function choice:add_case(caseName, caseNode)
     self.cases[caseName] = caseNode
     caseNode:setParent(self)
+  end
+
+  function choice:is_single_choice()
+    return self.single_choice == true
   end
 
   function choice:setParent(parent, recurse)
@@ -705,6 +751,17 @@ choice_mt = { __index = choice }
   function choice:toData()
     local ac = self:getActiveCase()
     if ac == nil then return nil end
+    print("[XX] TODATA FOR CHOICE: " .. self:getName())
+    print("[XX] ACTIVE CASE: " .. ac:getName())
+    print("[XX] PARENT: " .. self:getParent():getName())
+    if self:is_single_choice() then
+        print("[XX] [CHOICE] single choice, toData: " .. json.encode(ac:getChild():toData()))
+        print("[XX] [CHOICE] the full toData would: " .. json.encode(ac:toData()))
+        if ac.unnamed ~= nil then
+            print("[XX] CHOICE CHILD UNNAMED: " .. json.encode(ac:toData()))
+        end
+        --return ac:getChild():toData()
+    end
     return ac:toData()
   end
 
@@ -755,6 +812,9 @@ choice_mt = { __index = choice }
       for i,c in pairs(self.cases) do
         c:setParent(self)
       end
+    end
+    if found then
+        print("[XX] [CHOICE] fromData success, data: " .. json.encode(self:toData()))
     end
     return found
   end
