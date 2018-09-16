@@ -1,0 +1,47 @@
+{
+  "ietf-access-control-list:acls": {
+    "acl": [
+        {
+         "name": "allow-dns-packets",
+         "type": "ipv6-acl-type",
+         "aces": {
+            "ace": [{
+               "name": "rule1",
+               "matches": {
+                  "ipv6": {
+                     "destination-ipv6-network": "2001:db8::/32"
+                  },
+                  "tcp": {
+                     "destination-port": {
+                        "operator": "eq",
+                        "port": 53
+                     }
+                  }
+               },
+               "actions": {
+                  "forwarding": "accept"
+               }
+            }]
+         }
+      }
+
+    ]
+  },
+  "ietf-mud:mud": {
+    "cache-validity": 48,
+    "from-device-policy": {
+      "access-lists": {
+        "access-list": [
+          {
+            "name": "allow-dns-packets"
+          }
+        ]
+      }
+    },
+    "is-supported": true,
+    "last-update": "2018-09-13T11:20:51+01:00",
+    "mud-url": "https://example.com/mud-example",
+    "mud-version": 1,
+    "systeminfo": "Example for test"
+  }
+}

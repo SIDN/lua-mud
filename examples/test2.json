@@ -1,0 +1,43 @@
+{
+  "ietf-access-control-list:acls": {
+    "acl": [
+        {
+         "name": "sample-ipv4-acl",
+         "type": "ipv4-acl-type",
+         "aces": {
+            "ace": [{
+               "name": "rule1",
+               "matches": {
+                  "ipv4": {
+                     "protocol": 17,
+                     "ttl": 123,
+                     "destination-ipv4-network": "198.51.100.0/24",
+                     "source-ipv4-network": "192.0.2.0/24"
+                  }
+               },
+               "actions": {
+                  "forwarding": "drop"
+               }
+            }]
+         }
+        }
+    ]
+  },
+  "ietf-mud:mud": {
+    "cache-validity": 48,
+    "from-device-policy": {
+      "access-lists": {
+        "access-list": [
+          {
+            "name": "allow-dns-packets"
+          }
+        ]
+      }
+    },
+    "is-supported": true,
+    "last-update": "2018-09-13T11:20:51+01:00",
+    "mud-url": "https://example.com/mud-example",
+    "mud-version": 1,
+    "systeminfo": "Example for test"
+  }
+}
