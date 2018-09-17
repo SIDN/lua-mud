@@ -32,7 +32,7 @@ TestMudRulegen = {} --class
     builder = nftables_rb.create_rulebuilder()
     local rules = builder:build_rules(self.a)
     for i,r in pairs(rules) do
-      --print(r)
+      print(r)
     end
   end
 

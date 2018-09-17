@@ -7,6 +7,18 @@ local _M = {}
 local RuleBuilder = {}
 local RuleBuilder_mt = { __index = RuleBuilder }
 
+local function getAddresses(name, family)
+  local result = {}
+  local hostaddrs = socket.dns.getaddrinfo(name)
+  if hostaddrs then
+    for i,a in pairs(hostaddrs) do
+      if family == nil or a.family == family then
+        table.insert(result, a.addr)
+      end
+    end
+  end
+  return result
+end
 
 function getIPv6Addresses(name)
   return getAddresses(name, 'inet6')
@@ -21,6 +33,7 @@ end
 -- family_str, whether or not it actually resolves to an ip address
 local function replaceDNSNameNode(new_nodes, node, family_str, dnsname_str, network_source_or_dest, network_source_or_dest_v)
   local nd = node:toData()
+  if nd == nil then return false end
   if nd[family_str] and nd[family_str][dnsname_str] then
     local dnsname = nd[family_str][dnsname_str]
     local addrs = {}
@@ -33,7 +46,10 @@ local function replaceDNSNameNode(new_nodes, node, family_str, dnsname_str, netw
       print("WARNING: " .. dnsname .. " does not resolve to any " .. family_str .. " addresses")
     end
     for i,a in pairs(addrs) do
+      -- TODO: does this mess up older data?
+      node:clearData()
       local nn = yang.util.deepcopy(node)
+
       nd[family_str][dnsname_str] = nil
       -- add new rule here ((TODO))
       --nd[family_str][network_source_or_dest] = {}
@@ -45,8 +61,9 @@ local function replaceDNSNameNode(new_nodes, node, family_str, dnsname_str, netw
       end
       --nn:fromData_noerror(nd)
       nn:clearData()
-      nn:fromData_noerror(nd)
-      --nn:fromData_noerror(nd)
+      if not nn:fromData_noerror(nd) then
+        error("error creating new node from data")
+      end
       table.insert(new_nodes, nn)
     end
     return true
@@ -54,37 +71,37 @@ local function replaceDNSNameNode(new_nodes, node, family_str, dnsname_str, netw
   return false
 end
 
-
 local function ipMatchToRulePart(match_node, match)
   rulepart = ""
 
   if match_node:getName() == 'ietf-acldns:dst-dnsname' then
-      rulepart = rulepart .. "daddr " .. match_node:toData() .. " "
+    rulepart = rulepart .. "daddr " .. match_node:toData() .. " "
   elseif match_node:getName() == 'ietf-acldns:src-dnsname' then
-      rulepart = rulepart .. "saddr " .. match_node:toData() .. " "
+    rulepart = rulepart .. "saddr " .. match_node:toData() .. " "
   elseif match_node:getName() == 'protocol' then
-      -- this is done by virtue of it being an ipv6 option
-      if match_node:getValue() == 6 then
-        rulepart = rulepart .. "-p tcp "
-      elseif match_node:getValue() == 17 then
-        rulepart = rulepart .. "-p udp "
-      else
-        error("Unsupport protocol value: " .. match_node:getValue())
-      end
+    -- this is done by virtue of it being an ipv6 option
+    if match_node:getValue() == 6 then
+      rulepart = rulepart .. "-p tcp "
+    elseif match_node:getValue() == 17 then
+      rulepart = rulepart .. "-p udp "
+    else
+      error("Unsupport protocol value: " .. match_node:getValue())
+    end
   elseif match_node:getName() == 'destination-port' then
-      -- TODO: check operator and/or range
-      rulepart = rulepart .. "--dport " .. match_node:getActiveCase():getNode('port'):getValue() .. " "
+    -- TODO: check operator and/or range
+    rulepart = rulepart .. "--dport " .. match_node:getNode('port'):toData() .. " "
   elseif match_node:getName() == 'source-port' then
-      -- TODO: check operator and/or range
-      rulepart = rulepart .. "--sport " .. match_node:getActiveCase():getNode('port'):getValue() .. " "
-  elseif match_node:getName() == 'destination-network' then
-      -- TODO: check operator and/or range
-      rulepart = rulepart .. "-d " .. match_node:getActiveCase():getValue() .. " "
-  elseif match_node:getName() == 'source-network' then
-      -- TODO: check operator and/or range
-      rulepart = rulepart .. "-s " .. match_node:getActiveCase():getValue() .. " "
+    -- TODO: check operator and/or range
+    rulepart = rulepart .. "--sport " .. match_node:getNode('port'):toData() .. " "
+  elseif match_node:getName() == 'destination-ipv4-network' or match_node:getName() == 'destination-ipv6-network' then
+    -- TODO: check operator and/or range
+    --error(json.encode(match_node:toData()))
+    rulepart = rulepart .. "-d " .. match_node:toData() .. " "
+  elseif match_node:getName() == 'source-ipv4-network' or match_node:getName() == 'source-ipv6-network' then
+    -- TODO: check operator and/or range
+    rulepart = rulepart .. "-s " .. match_node:toData() .. " "
   else
-      error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
+    error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
   end
 
   return rulepart
@@ -94,33 +111,30 @@ function tcpMatchToRulePart(match_node, match)
   if match_node == nil then error("match_node is nil") end
   local rulepart = ""
   if match_node:hasValue() then
-      if match_node:getName() == 'ietf-mud:direction-initiated' then
-          -- TODO: does this have any influence on the actual rule?
-          if match_node:toData() == 'from-device' then
-              direction = "filter output "
-          elseif match_node:toData() == 'to-device' then
-              direction = "filter input "
-          else
-              error('unknown direction-initiated: ' .. match_node:toData())
-          end
-      elseif match_node:getName() == 'source-port' then
-          -- TODO: check operator and/or range
-          rulepart = rulepart .. "--sport " .. match_node:getChild():getActiveCase():getNode('port'):getValue() .. " "
-      elseif match_node:getName() == 'destination-port' then
-          -- TODO: check operator and/or range
-
-          local port_case = match_node:getChild():getActiveCase()
-          -- TODO: chech which case it is, for now we assume operator->eq
-
-          rulepart = rulepart .. "--dport " .. port_case:getNode("port"):getValue() .. " "
+    if match_node:getName() == 'ietf-mud:direction-initiated' then
+      -- TODO: does this have any influence on the actual rule?
+      if match_node:toData() == 'from-device' then
+        direction = "filter output "
+      elseif match_node:toData() == 'to-device' then
+        direction = "filter input "
       else
-          error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
+        error('unknown direction-initiated: ' .. match_node:toData())
       end
+    elseif match_node:getName() == 'source-port' then
+      -- TODO: check operator and/or range (i.e. other choice options)
+      local case_node = match_node.active_case:getCaseNode()
+      rulepart = rulepart .. "--sport " .. case_node:getNode('port'):getValue() .. " "
+    elseif match_node:getName() == 'destination-port' then
+      -- TODO: check operator and/or range
+      local port_case = match_node.active_case:getCaseNode()
+      -- TODO: chech which case it is, for now we assume operator->eq
+      rulepart = rulepart .. "--dport " .. port_case:getNode("port"):getValue() .. " "
+    else
+      error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() .. " type " .. match_node:getType())
+    end
   end
   return rulepart
 end
-
-
 
 local function aceToRulesIPTables(ace_node)
   local nodes = ace_node:getAll()
@@ -143,6 +157,7 @@ local function aceToRulesIPTables(ace_node)
     -- source-ipv4-network or source-ipv6-network, depending on what it was
     -- (ipv6/destination-dnsname, etc.)
     local node_replaced = false
+
     if replaceDNSNameNode(new_nodes, n, "ipv6", "ietf-acldns:src-dnsname", 'source-network', 'source-ipv6-network') then
       node_replaced = true
     end
@@ -164,77 +179,58 @@ local function aceToRulesIPTables(ace_node)
   --
   -- conversion to actual rules
   --
-  --for i,n in pairs(new_nodes) do
-  --  print("[XX] ADD PATH " .. n:getPath())
-  --  table.insert(paths, n:getPath())
-  --end
+  local rules = {}
 
-  --return paths
-    local rules = {}
+  for i,ace in pairs(new_nodes) do
+    local rule = ""
+    local chain = "-A FORWARD"
+    local cmd = "iptables "
+    local rulematches = ""
 
-    for i,ace in pairs(new_nodes) do
-      print("[XX] CREATING NRULE FROM: " .. json.encode(ace:toData()))
-      local rule = ""
-      local chain = "-A FORWARD"
-      local cmd = "iptables "
-      local rulematches = ""
-
-      print("[XX] NODE TO CONSIDER '" .. ace:getName() .. "': " .. json.encode(ace:toData()))
-      for j,aceNode in pairs(ace.yang_nodes) do
-        if aceNode:hasValue() then
-          local choice = aceNode:getActiveCase()
-          if choice:getName() == 'ipv4' then
-            cmd = "iptables"
-            for j,match_node in pairs(choice.yang_nodes) do
-              if match_node:hasValue() then
-                print("[XX] handling " .. json.encode(match_node:toData()))
-                rulematches = rulematches .. ipMatchToRulePart(match_node, ace_node)
-              end
+    for j,aceNode in pairs(ace.yang_nodes) do
+      if aceNode:hasValue() then
+        local choice = aceNode.active_case
+        if choice:getName() == 'ipv4' then
+          cmd = "iptables"
+          for j,match_node in pairs(choice:getCaseNode().yang_nodes) do
+            if match_node:hasValue() then
+              rulematches = rulematches .. ipMatchToRulePart(match_node, ace_node)
             end
-          elseif choice:getName() == 'ipv6' then
-            cmd = "ip6tables"
-            for j,match_node in pairs(choice.yang_nodes) do
-              if match_node:hasValue() then
-                print("[XX] handling " .. json.encode(match_node:toData()))
-                rulematches = rulematches .. ipMatchToRulePart(match_node, ace_node)
-              end
-            end
-          elseif choice:getName() == 'tcp' then
-            for j,match_node in pairs(choice.yang_nodes) do
-              if match_node:hasValue() then
-                print("[XX] handlingTCP " .. json.encode(match_node:toData()))
-                rulematches = rulematches .. tcpMatchToRulePart(match_node, ace_node)
-              end
-            end
-          else
-            error("notimpl: " .. choice:getName())
           end
-          --print("[XX] SUBNODE '" .. choice:getName() .. " ".. aceNode:getName() .. "': " .. json.encode(aceNode:toData()))
+        elseif choice:getName() == 'ipv6' then
+          cmd = "ip6tables"
+          for j,match_node in pairs(choice:getCaseNode().yang_nodes) do
+            if match_node:hasValue() then
+              rulematches = rulematches .. ipMatchToRulePart(match_node, ace_node)
+            end
+          end
+        elseif choice:getName() == 'tcp' then
+          for j,match_node in pairs(choice:getCaseNode().yang_nodes) do
+            if match_node:hasValue() then
+              rulematches = rulematches .. tcpMatchToRulePart(match_node, ace_node)
+            end
+          end
+        else
+          error("notimpl: " .. choice:getName())
         end
       end
-
-      local name = ace:getParent():getNode('name'):getValue()
-
-      -- note: do we have the action type correctly defined?
-      local action = "<undefined action>"
-      local action_d = ace:getParent():getNode('actions'):getNode('forwarding'):getValue()
-      if action_d == "accept" then
-        action = "-j ACCEPT"
-      end
-
-      print("[XX] ACTION: " .. json.encode(ace:getParent():getNode('actions'):getType()))
-
-
-      local rule = cmd .. " " .. chain .. " " .. rulematches .. action
-      table.insert(rules, rule)
-      print("[XX] THE NRULE IS: " .. rule)
-      print("[XX] THAT IS THE NRULE")
     end
 
+    local name = ace:getParent():getNode('name'):getValue()
 
-    return rules
+    -- note: do we have the action type correctly defined?
+    local action = "<undefined action>"
+    local action_d = ace:getParent():getNode('actions'):getNode('forwarding'):getValue()
+    if action_d == "accept" then
+      action = "-j ACCEPT"
+    end
+
+    local rule = cmd .. " " .. chain .. " " .. rulematches .. action
+    table.insert(rules, rule)
+  end
+
+  return rules
 end
-
 
 function _M.create_rulebuilder()
   local new_inst = {}
@@ -254,7 +250,6 @@ function RuleBuilder:build_rules(mud, settings)
     -- but xpath is too complex. need to find right level.
     local found = false
     local acl = yang.findNodeWithProperty(mud.mud_container, "acl", "name", acl_name)
-    print("[XX] working")
     yang.util.table_extend(rules, aceToRulesIPTables(acl:getNode('aces'):getNode('ace')))
   end
 

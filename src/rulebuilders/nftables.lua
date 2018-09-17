@@ -24,7 +24,6 @@ local yang = require("yang")
 -- # nft add rule inet filter input ct state related,established accept
 --
 
-
 --
 -- Helper functions
 --
@@ -33,95 +32,95 @@ local function ipMatchToRulePart(match_node)
   rulepart = ""
 
   if match_node:getName() == 'ietf-acldns:dst-dnsname' then
-      rulepart = rulepart .. "daddr " .. match_node:toData() .. " "
+    rulepart = rulepart .. "daddr " .. match_node:toData() .. " "
   elseif match_node:getName() == 'ietf-acldns:src-dnsname' then
-      rulepart = rulepart .. "saddr " .. match_node:toData() .. " "
+    rulepart = rulepart .. "saddr " .. match_node:toData() .. " "
   elseif match_node:getName() == 'protocol' then
-      -- this is done by virtue of it being an ipv6 option
+    -- this is done by virtue of it being an ipv6 option
   elseif match_node:getName() == 'destination-port' then
-      -- TODO: check operator and/or range
-      rulepart = rulepart .. "dport " .. match_node:getActiveCase():getNode('port'):getValue() .. " "
+    -- TODO: check operator and/or range
+    rulepart = rulepart .. "dport " .. match_node:getActiveCase():getNode('port'):getValue() .. " "
   else
-      error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
+    error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
   end
 
   return rulepart
 end
 
-
-
 local function aceToRules(ace_node)
-    local rules = {}
-    for i,ace in pairs(ace_node:getValue()) do
-        local rulestart = "nft add rule inet "
-        local v6_or_v4 = nil
-        local direction = nil
-        local rulematches = ""
-        for i,match_choice in pairs(ace:getNode('matches').yang_nodes) do
-            local match = match_choice:getActiveCase()
-            if match ~= nil then
-                if match:getName() == 'ipv4' then
-                    v6_or_v4 = "ip "
-                    for j,match_node in pairs(match.yang_nodes) do
-                        if match_node:hasValue() then
-                            rulematches = rulematches .. ipMatchToRulePart(match_node)
-                        end
-                    end
-                elseif match:getName() == 'ipv6' then
-                    v6_or_v4 = "ip6 "
-                    for j,match_node in pairs(match.yang_nodes) do
-                        if match_node:hasValue() then
-                            rulematches = rulematches .. ipMatchToRulePart(match_node)
-                        end
-                    end
-                    -- TODO
-                    -- TODO
-                elseif match:getName() == 'tcp' then
-                    rulematches = rulematches .. "tcp "
-                    for j,match_node in pairs(match.yang_nodes) do
-                        if match_node:hasValue() then
-                            if match_node:getName() == 'ietf-mud:direction-initiated' then
-                                -- TODO: does this have any influence on the actual rule?
-                                if match_node:toData() == 'from-device' then
-                                    direction = "filter output "
-                                elseif match_node:toData() == 'to-device' then
-                                    direction = "filter input "
-                                else
-                                    error('unknown direction-initiated: ' .. match_node:toData())
-                                end
-                            elseif match_node:getName() == 'source-port' then
-                                -- TODO: check operator and/or range
-                                rulematches = rulematches .. "sport " .. match_node:getChild():getActiveCase():getNode('port'):getValue() .. " "
-                            elseif match_node:getName() == 'destination-port' then
-                                -- TODO: check operator and/or range
-
-                                local port_case = match_node:getChild():getActiveCase()
-                                -- TODO: chech which case it is, for now we assume operator->eq
-                                
-                                rulematches = rulematches .. "dport " .. port_case:getNode("port"):getValue() .. " "
-                            else
-                                error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
-                            end
-                        end
-                    end
-                else
-                    error('unknown match type: ' .. match:getName())
-                end
+  local rules = {}
+  for i,ace in pairs(ace_node:getValue()) do
+    local rulestart = "nft add rule inet "
+    local v6_or_v4 = nil
+    local direction = nil
+    local rulematches = ""
+    for i,match_choice in pairs(ace:getNode('matches').yang_nodes) do
+      if match_choice.active_case ~= nil then
+        local match = match_choice.active_case:getCaseNode()
+        if match ~= nil then
+          if match:getName() == 'ipv4' then
+            v6_or_v4 = "ip "
+            for j,match_node in pairs(match.yang_nodes) do
+              if match_node:hasValue() then
+                rulematches = rulematches .. ipMatchToRulePart(match_node)
+              end
             end
-        end
+          elseif match:getName() == 'ipv6' then
+            v6_or_v4 = "ip6 "
+            for j,match_node in pairs(match.yang_nodes) do
+              if match_node:hasValue() then
+                rulematches = rulematches .. ipMatchToRulePart(match_node)
+              end
+            end
+            -- TODO
+            -- TODO
+          elseif match:getName() == 'tcp' then
+            rulematches = rulematches .. "tcp "
+            for j,match_node in pairs(match.yang_nodes) do
+              if match_node:hasValue() then
+                if match_node:getName() == 'ietf-mud:direction-initiated' then
+                  -- TODO: does this have any influence on the actual rule?
+                  if match_node:toData() == 'from-device' then
+                    direction = "filter output "
+                  elseif match_node:toData() == 'to-device' then
+                    direction = "filter input "
+                  else
+                    error('unknown direction-initiated: ' .. match_node:toData())
+                  end
+                elseif match_node:getName() == 'source-port' then
+                  -- TODO: check operator and/or range
+                  rulematches = rulematches .. "sport " .. match_node.active_case:getCaseNode():getNode('port'):getValue() .. " "
+                elseif match_node:getName() == 'destination-port' then
+                  -- TODO: check operator and/or range
 
-        local rule_action = ace:getNode("actions/forwarding"):getValue()
-        if v6_or_v4 == nil then
-            error('currently, we need either an ipv4 or ipv6 rule')
+                  local port_case = match_node.active_case:getCaseNode()
+                  -- TODO: chech which case it is, for now we assume operator->eq
+
+                  rulematches = rulematches .. "dport " .. port_case:getNode("port"):getValue() .. " "
+                else
+                  error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() .. " type: " .. match:getType() )
+                end
+              end
+            end
+          else
+            error('unknown match type: ' .. match:getName() .. " type: " ..match:getType())
+          end
         end
-        if direction == nil then
-            -- TODO: how to determine chain/
-            direction = "forward "
-        end
-        rule = rulestart .. direction .. v6_or_v4 .. rulematches .. rule_action
-        table.insert(rules, rule)
+      end
     end
-    return rules
+
+    local rule_action = ace:getNode("actions/forwarding"):getValue()
+    if v6_or_v4 == nil then
+      error('currently, we need either an ipv4 or ipv6 rule')
+    end
+    if direction == nil then
+      -- TODO: how to determine chain/
+      direction = "forward "
+    end
+    rule = rulestart .. direction .. v6_or_v4 .. rulematches .. rule_action
+    table.insert(rules, rule)
+  end
+  return rules
 end
 
 local function makeRules(mud)
