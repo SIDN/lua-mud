@@ -106,11 +106,14 @@ mud_mt = { __index = mud }
     if json_data == nil then
       error(err)
     end
-    self.mud_container:fromData_noerror(yang.util.deepcopy(json_data))
+    --local result = self.mud_container:fromData_noerror(yang.util.deepcopy(json_data))
+    local result = self.mud_container:fromData_noerror(json_data)
     if json_data['ietf-mud:mud'] == nil then
       if file_name == nil then file_name = "<unknown>" end
       error("Top-level node 'ietf-mud:mud' not found in " .. file_name)
     end
+    print("[XX] RESULT: " .. json.encode(result))
+    print("[XX] RESULT FROM PARSING DATA: " .. json.encode(self.mud_container:toData()))
   end
 
   -- parse from json file

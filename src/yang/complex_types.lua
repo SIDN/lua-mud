@@ -298,17 +298,31 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     local matches_l4_choice = basic_types.choice:create('l4', false)
     local matches_l5_choice = basic_types.choice:create('l5', false)
 
-    matches_l1_choice:add_case('eth', matches_eth)
-    matches_l3_choice:add_case('tcp', matches_tcp)
-    matches_l4_choice:add_case('udp', matches_udp)
-    matches_l5_choice:add_case('ipv6', matches_ipv6)
-    matches_l2_choice:add_case('ipv4', matches_ipv4)
+    local matches_eth_container = basic_types.container:create('eth', false)
+    matches_eth_container:add_node(matches_eth)
+    matches_l1_choice:add_case('eth', matches_eth_container)
+
+    local matches_ipv4_container = basic_types.container:create('ipv4', false)
+    matches_ipv4_container:add_node(matches_ipv4)
+    matches_l2_choice:add_case('ipv4', matches_ipv4_container)
+
+    local matches_tcp_container = basic_types.container:create('tcp', false)
+    matches_tcp_container:add_node(matches_tcp)
+    matches_l3_choice:add_case('tcp', matches_tcp_container)
+
+    local matches_udp_container = basic_types.container:create('udp', false)
+    matches_udp_container:add_node(matches_udp)
+    matches_l4_choice:add_case('udp', matches_udp_container)
+
+    local matches_ipv6_container = basic_types.container:create('ipv6', false)
+    matches_ipv6_container:add_node(matches_ipv6)
+    matches_l5_choice:add_case('ipv6', matches_ipv6_container)
 
     matches:add_node(matches_l1_choice)
+    matches:add_node(matches_l2_choice)
     matches:add_node(matches_l3_choice)
     matches:add_node(matches_l4_choice)
     matches:add_node(matches_l5_choice)
-    matches:add_node(matches_l2_choice)
 
     ace_list:add_list_node(matches)
     aces:add_node(ace_list)

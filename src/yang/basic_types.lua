@@ -367,23 +367,22 @@ container_mt = { __index = container }
     if type(data) ~= 'table' then
       return false
     end
-    if self:getName() == "source-port" then
-    end
     local any_match = false
     for node_name, node in pairs(self.yang_nodes) do
       -- special case for choices
+      print("[XX] [CONTAINER] looking for subnode " .. node_name .. " with data: " .. json.encode(data))
       if node:isa(_M.choice) then
-        if self:getName() == "source-port" then
-        end
         -- the choice value can be direct or named, try named versions first
         if node:fromData_noerror(data) then
           any_match = true
-          break
+          --break
         else
           for cname,cnode in pairs(data) do
+            print("[XX] [CONTAINER] looking for subnode " .. node_name .. " with subdata: " .. json.encode(cnode))
             if node:hasCase(cname) and node:fromData_noerror(cnode, cname) then
               any_match = true
-              break
+              print("[XX] [CONTAINER] FOUND!")
+              --break
             end
           end
         end
@@ -397,6 +396,10 @@ container_mt = { __index = container }
       --if self:getParent():getParent() ~= nil then
       --end
     --end
+    if any_match then
+      print("[XX] [CONTAINER] match success for " .. self:getName() .. " data " .. json.encode(data))
+      print("[XX] [CONTAINER] mtch success results in " .. json.encode(self:toData()))
+    end
     return any_match
   end
 
@@ -417,61 +420,23 @@ container_mt = { __index = container }
 
   function container:toData()
     local result = {}
-    for name,value in pairs(self.yang_nodes) do
-      print("[XX] [CONTAINER] Trying yang-node " .. value:getName() .. " in " .. self:getName())
-      local v
-      -- if the child element is a choice, the name is not the name of the element, but of its
-      -- active case
-      local actual_name = name
-      if value:isa(_M.choice) then
-        if value:getActiveCase() ~= nil then
-          actual_name = value:getActiveCase():getName()
-          print("[XX] [CONTAINER] Choice in container '"..self:getName().."' the actual name is: " .. actual_name)
-          print("[XX] [CONTAINER] its toData() results in: " .. json.encode(value:toData()))
-          v = value:toData()
-          -- we differentiate between 'single-choice' containers (which don't include the choice subcontainer names)
-          -- and 'multi-choice' containers (which do)
-          if value:is_single_choice() then
-            print("[XX] [CONTAINER] It is a single choice within its container, so returning directly")
-            --return value:toData()
-            if value.unnamed ~= nil then
-                print("[XX] CONTAINER CHILD " .. value:getName() .. " IS UNNAMED CHOICE, DATA: " .. json.encode(v))
-            end
-            local case = value:getActiveCase()
-            if case.unnamed then
-                return case:toData()
-                --v = case:toData()
-                --error("bijna")
-            end
-            if actual_name == "port-operator" then
-                --error('ja hier')
-            end
-            v = value:toData()
-          end
-        else
-          v = nil
+    for name,node in pairs(self.yang_nodes) do
+      local node_data = node:toData()
+      if node_data ~= nil and node:isa(_M.choice) then
+        print("[XX] container child choice name '" .. name .. "' data: " .. json.encode(node_data))
+        -- choice nodes don't show up in result data (case is already filtered out by choice
+        for sname,sdata in pairs(node_data) do
+          result[sname] = sdata
         end
       else
-        v = value:toData()
-      end
-      -- exclude empty nodes
-      if v ~= nil and (type(v) ~= 'table' or tablelength(v) > 0) then
-        print("[XX] FOUND")
-        if value.unnamed ~= nil then
-            print("[XX] CONTAINER CHILD " .. value:getName() .. " IS UNNAMED, DATA: " .. json.encode(v))
-        else
-            print("[XX] CONTAINER CHILD " .. value:getName() .. " IS NOT UNNAMED, DATA: " .. json.encode(v))
-        end
-        result[actual_name] = v
+        result[name] = node_data
       end
     end
-
-    if self.unnamed ~= nil then
-        print("[XX] CONTAINER I AM UNNAMED, DATA: " .. json.encode(result))
-        return result
-    else
-        return result
-    end
+    --print("[XX] TODATA RESULT: " .. json.encode(result))
+    -- TODO: keep track instead of looking here? if still looking here,
+    -- don't use json.encode
+    if json.encode(result) == "{}" then return nil end
+    return result
   end
 
   function container:getNodeNames()
@@ -612,10 +577,16 @@ list_mt = { __index = list }
   -- Returns the list elements as raw data
   function list:toData()
     local result = {}
+    local have_result = false
     for i,value in pairs(self.value) do
+      have_result = true
       table.insert(result, value:toData())
     end
-    return result
+    if have_result then
+      return result
+    else
+      return nil
+    end
   end
 
   function list:getNode(path, given_list_index)
@@ -751,17 +722,17 @@ choice_mt = { __index = choice }
   function choice:toData()
     local ac = self:getActiveCase()
     if ac == nil then return nil end
-    print("[XX] TODATA FOR CHOICE: " .. self:getName())
-    print("[XX] ACTIVE CASE: " .. ac:getName())
-    print("[XX] PARENT: " .. self:getParent():getName())
-    if self:is_single_choice() then
-        print("[XX] [CHOICE] single choice, toData: " .. json.encode(ac:getChild():toData()))
-        print("[XX] [CHOICE] the full toData would: " .. json.encode(ac:toData()))
-        if ac.unnamed ~= nil then
-            print("[XX] CHOICE CHILD UNNAMED: " .. json.encode(ac:toData()))
-        end
-        --return ac:getChild():toData()
-    end
+    --print("[XX] TODATA FOR CHOICE: " .. self:getName())
+    --print("[XX] ACTIVE CASE: " .. ac:getName())
+    --print("[XX] PARENT: " .. self:getParent():getName())
+    --if self:is_single_choice() then
+    --    print("[XX] [CHOICE] single choice, toData: " .. json.encode(ac:getChild():toData()))
+    --    print("[XX] [CHOICE] the full toData would: " .. json.encode(ac:toData()))
+    --    if ac.unnamed ~= nil then
+    --        print("[XX] CHOICE CHILD UNNAMED: " .. json.encode(ac:toData()))
+    --    end
+    --    --return ac:getChild():toData()
+    --end
     return ac:toData()
   end
 
