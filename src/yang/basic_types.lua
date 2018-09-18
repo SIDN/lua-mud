@@ -657,8 +657,22 @@ choice_mt = { __index = choice }
   -- cases can be of any type
   -- TODO: how to handle block of multiple statements in one case? Does this happen?
   function choice:add_case(caseName, caseNode)
+    if caseNode:getType() ~= 'container' then
+      error("choice:add_case() argument 2 must be a container")
+    end
+    --if tablelength(caseNode.yang_nodes) ~= 1 then
+    --  error("choice:add_case() container must have exactly 1 entry (has " .. tablelength(caseNode) --.. ")")
+    --end
     self.cases[caseName] = caseNode
     caseNode:setParent(self)
+  end
+
+  -- Wrapper method for add_case, which wraps the given node in a container
+  -- node (TODO: make that a case class?)
+  function choice:add_case_container(caseName, caseNode)
+    local node_container = _M.container.create('caseName', false)
+    node_container:add_node(caseNode)
+    self:add_case(caseName, node_container)
   end
 
   function choice:is_single_choice()
@@ -762,30 +776,41 @@ choice_mt = { __index = choice }
   -- if choice_name is not nil, it is checked against the cases
   -- if it is nil, any case with a matching dataset succeeds
   function choice:fromData_noerror(data, choice_name)
-
     -- can we do this better? right now we copy, and clear them, then put them back
     -- the reason for this is 1: no changes if it fails, 2. to keep track of whether one
     -- succeeded and 3. reset the other cases if one succeeds
+    print("[XX] fromData_noerror (choice) called")
     local cases_copy = util.deepcopy(self.cases)
+    print("[XX] number of cases: " .. tablelength(cases_copy))
+    print("[XX] number of origcases: " .. tablelength(self.cases))
     local found = false
     for n,c in pairs(cases_copy) do
+      --print("[XX] TRY CASE1 " .. c:getName())
       c:clearData()
+      case_node = nil
+      for nn,cc in pairs(c.yang_nodes) do
+        case_node = cc
+      end
+      print("[XX] TRY CASE " .. case_node:getName())
       if not found then
-        if c:fromData_noerror(data) then
-          if choice_name == nil or choice_name == c:getName() then
+        if case_node:fromData_noerror(data) then
+          if choice_name == nil or choice_name == case_node:getName() then
             found = true
           end
         end
       end
     end
+    print("[XX] all cases tried")
     if found then
       self.cases = cases_copy
-      for i,c in pairs(self.cases) do
-        c:setParent(self)
+      for i,cc in pairs(self.cases) do
+        cc:setParent(self)
       end
     end
     if found then
         print("[XX] [CHOICE] fromData success, data: " .. json.encode(self:toData()))
+    else
+        print("[XX] [CHOICE] fromData error, data: " .. json.encode(data))
     end
     return found
   end
