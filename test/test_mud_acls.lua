@@ -29,12 +29,12 @@ TestMudACLs = {} --class
   function TestMudACLs:testParseMudFiles()
     local files =
       {
-        "../examples/example_from_draft.json",
-        "../examples/example_from_mudmaker.json",
-        "../examples/example_cloudservice.json",
-        "../examples/custom_example.json",
+        --"../examples/example_from_draft.json",
+        --"../examples/example_from_mudmaker.json",
+        --"../examples/example_cloudservice.json",
+        --"../examples/custom_example.json",
         "../examples/test1.json",
-        "../examples/test2.json"
+        --"../examples/test2.json"
       }
     for i,filename in pairs(files) do
         local b = mu.mud.create()

@@ -364,34 +364,36 @@ container_mt = { __index = container }
   end
 
   function container:fromData_noerror(data)
+    print("[XX] [CONTAINER] trying fromData in " .. self:getName() .. " with data " .. json.encode(data))
     if type(data) ~= 'table' then
       return false
     end
     local any_match = false
     for node_name, node in pairs(self.yang_nodes) do
       -- special case for choices
-      print("[XX] [CONTAINER] looking for subnode " .. node_name .. " with data: " .. json.encode(data))
-      if node:isa(_M.choice) then
-        -- the choice value can be direct or named, try named versions first
-        if node:fromData_noerror(data) then
-          any_match = true
-          --break
-        else
-          for cname,cnode in pairs(data) do
-            print("[XX] [CONTAINER] looking for subnode " .. node_name .. " with subdata: " .. json.encode(cnode))
-            if node:hasCase(cname) and node:fromData_noerror(cnode, cname) then
-              any_match = true
-              print("[XX] [CONTAINER] FOUND!")
-              --break
-            end
+--      print("[XX] [CONTAINER] looking for subnode " .. node_name .. " with data: " .. json.encode(data))
+--      if node:isa(_M.choice) then
+--        -- the choice value can be direct or named, try named versions first
+--        if node:fromData_noerror(data) then
+--          any_match = true
+--          --break
+--        else
+--          for cname,cnode in pairs(data) do
+--            print("[XX] [CONTAINER] looking for subnode " .. node_name .. " with subdata: " .. json.encode(cnode))
+--            if node:hasCase(cname) and node:fromData_noerror(cnode, cname) then
+--              any_match = true
+--              print("[XX] [CONTAINER] FOUND!")
+--              --break
+--            end
+--          end
+--        end
+--      elseif data[node_name] ~= nil then
+        print("[XX] [CONTAINER] looking at subnode: " .. node_name)
+          if node:fromData_noerror(data[node_name]) then
+            any_match = true
           end
-        end
-      elseif data[node_name] ~= nil then
-        if node:fromData_noerror(data[node_name]) then
-          any_match = true
-        end
       end
-    end
+--    end
     --if any_match and self:getName() == "matches" then
       --if self:getParent():getParent() ~= nil then
       --end
@@ -422,13 +424,14 @@ container_mt = { __index = container }
     local result = {}
     for name,node in pairs(self.yang_nodes) do
       local node_data = node:toData()
-      if node_data ~= nil and node:isa(_M.choice) then
-        print("[XX] container child choice name '" .. name .. "' data: " .. json.encode(node_data))
-        -- choice nodes don't show up in result data (case is already filtered out by choice
-        for sname,sdata in pairs(node_data) do
-          result[sname] = sdata
-        end
-      else
+      --if node_data ~= nil and node:isa(_M.choice) then
+      --  print("[XX] container child choice name '" .. name .. "' data: " .. json.encode(node_data))
+      --  -- choice nodes don't show up in result data (case is already filtered out by choice
+      --  for sname,sdata in pairs(node_data) do
+      --    result[sname] = sdata
+      --  end
+      --else
+      if node_data ~= nil then
         result[name] = node_data
       end
     end
@@ -642,26 +645,29 @@ function tablelength(T)
   return count
 end
 
-local choice = util.subClass("choice", _M.YangNode)
-choice_mt = { __index = choice }
+
+
+
+local OLD_choice = util.subClass("OLD_choice", _M.YangNode)
+OLD_choice_mt = { __index = OLD_choice }
 
   -- note that nodename is only used in the schema, not the data
-  function choice:create(nodeName, mandatory, single_choice)
-    local new_inst = _M.YangNode:create("choice", nodeName, mandatory)
-    setmetatable(new_inst, choice_mt)
+  function OLD_choice:create(nodeName, mandatory, single_OLD_choice)
+    local new_inst = _M.YangNode:create("OLD_choice", nodeName, mandatory)
+    setmetatable(new_inst, OLD_choice_mt)
     new_inst.cases = {}
-    new_inst.single_choice = single_choice
+    new_inst.single_OLD_choice = single_OLD_choice
     return new_inst
   end
 
   -- cases can be of any type
   -- TODO: how to handle block of multiple statements in one case? Does this happen?
-  function choice:add_case(caseName, caseNode)
+  function OLD_choice:add_case(caseName, caseNode)
     if caseNode:getType() ~= 'container' then
-      error("choice:add_case() argument 2 must be a container")
+      error("OLD_choice:add_case() argument 2 must be a container")
     end
     --if tablelength(caseNode.yang_nodes) ~= 1 then
-    --  error("choice:add_case() container must have exactly 1 entry (has " .. tablelength(caseNode) --.. ")")
+    --  error("OLD_choice:add_case() container must have exactly 1 entry (has " .. tablelength(caseNode) --.. ")")
     --end
     self.cases[caseName] = caseNode
     caseNode:setParent(self)
@@ -669,24 +675,24 @@ choice_mt = { __index = choice }
 
   -- Wrapper method for add_case, which wraps the given node in a container
   -- node (TODO: make that a case class?)
-  function choice:add_case_container(caseName, caseNode)
+  function OLD_choice:add_case_container(caseName, caseNode)
     local node_container = _M.container.create('caseName', false)
     node_container:add_node(caseNode)
     self:add_case(caseName, node_container)
   end
 
-  function choice:is_single_choice()
-    return self.single_choice == true
+  function OLD_choice:is_single_OLD_choice()
+    return self.single_OLD_choice == true
   end
 
-  function choice:setParent(parent, recurse)
+  function OLD_choice:setParent(parent, recurse)
     self.parent = parent
     if recurse then
       for i,n in pairs(self.cases) do n:setParent(self, recurse) end
     end
   end
 
-  function choice:getCaseCount()
+  function OLD_choice:getCaseCount()
     local result = 0
     for _,__ in pairs(self.cases) do
       result = result + 1
@@ -694,7 +700,7 @@ choice_mt = { __index = choice }
     return result
   end
 
-  function choice:getAll()
+  function OLD_choice:getAll()
     local result = {}
     local active = self:getActiveCase()
     if active ~= nil then
@@ -703,10 +709,10 @@ choice_mt = { __index = choice }
     return result
   end
 
-  function choice:getPath(requester)
+  function OLD_choice:getPath(requester)
     --if requester ~= nil then
     --end
-    -- the choice itself does not show up in the data
+    -- the OLD_choice itself does not show up in the data
     if self.parent ~= nil then
       return self.parent:getPath(self)
     else
@@ -715,10 +721,10 @@ choice_mt = { __index = choice }
   end
 
   -- TODO remove this
-  function choice:set_named(is_named)
+  function OLD_choice:set_named(is_named)
   end
 
-  function choice:getActiveCase()
+  function OLD_choice:getActiveCase()
     for i,c in pairs(self.cases) do
       if c:hasValue() then
         return c
@@ -726,24 +732,24 @@ choice_mt = { __index = choice }
     end
   end
 
-  function choice:clearData()
+  function OLD_choice:clearData()
     local active_case = self:getActiveCase()
     if active_case ~= nil then
       self:getActiveCase():clearData()
     end
   end
 
-  function choice:toData()
+  function OLD_choice:toData()
     local ac = self:getActiveCase()
     if ac == nil then return nil end
-    --print("[XX] TODATA FOR CHOICE: " .. self:getName())
+    --print("[XX] TODATA FOR OLD_choice: " .. self:getName())
     --print("[XX] ACTIVE CASE: " .. ac:getName())
     --print("[XX] PARENT: " .. self:getParent():getName())
-    --if self:is_single_choice() then
-    --    print("[XX] [CHOICE] single choice, toData: " .. json.encode(ac:getChild():toData()))
-    --    print("[XX] [CHOICE] the full toData would: " .. json.encode(ac:toData()))
+    --if self:is_single_OLD_choice() then
+    --    print("[XX] [OLD_choice] single OLD_choice, toData: " .. json.encode(ac:getChild():toData()))
+    --    print("[XX] [OLD_choice] the full toData would: " .. json.encode(ac:toData()))
     --    if ac.unnamed ~= nil then
-    --        print("[XX] CHOICE CHILD UNNAMED: " .. json.encode(ac:toData()))
+    --        print("[XX] OLD_choice CHILD UNNAMED: " .. json.encode(ac:toData()))
     --    end
     --    --return ac:getChild():toData()
     --end
@@ -751,13 +757,13 @@ choice_mt = { __index = choice }
   end
 
   -- Returns true if a value has been set
-  --function choice:setValue(value)
+  --function OLD_choice:setValue(value)
   --  for case_name,case in pairs(self.cases) do
   --  end
-  --  error("No valid choice found for choice " .. self:getName())
+  --  error("No valid OLD_choice found for OLD_choice " .. self:getName())
   --end
 
-  function choice:hasValue()
+  function OLD_choice:hasValue()
     for i,n in pairs(self.cases) do
       if n:hasValue() then
         return true
@@ -766,20 +772,20 @@ choice_mt = { __index = choice }
     return false
   end
 
-  function choice:hasCase(case_name)
+  function OLD_choice:hasCase(case_name)
     for i,n in pairs(self.cases) do
       if n:getName() == case_name then return true end
     end
     return false
   end
 
-  -- if choice_name is not nil, it is checked against the cases
+  -- if OLD_choice_name is not nil, it is checked against the cases
   -- if it is nil, any case with a matching dataset succeeds
-  function choice:fromData_noerror(data, choice_name)
+  function OLD_choice:fromData_noerror(data, OLD_choice_name)
     -- can we do this better? right now we copy, and clear them, then put them back
     -- the reason for this is 1: no changes if it fails, 2. to keep track of whether one
     -- succeeded and 3. reset the other cases if one succeeds
-    print("[XX] fromData_noerror (choice) called")
+    print("[XX] fromData_noerror (OLD_choice) called")
     local cases_copy = util.deepcopy(self.cases)
     print("[XX] number of cases: " .. tablelength(cases_copy))
     print("[XX] number of origcases: " .. tablelength(self.cases))
@@ -794,7 +800,7 @@ choice_mt = { __index = choice }
       print("[XX] TRY CASE " .. case_node:getName())
       if not found then
         if case_node:fromData_noerror(data) then
-          if choice_name == nil or choice_name == case_node:getName() then
+          if OLD_choice_name == nil or OLD_choice_name == case_node:getName() then
             found = true
           end
         end
@@ -808,13 +814,134 @@ choice_mt = { __index = choice }
       end
     end
     if found then
-        print("[XX] [CHOICE] fromData success, data: " .. json.encode(self:toData()))
+        print("[XX] [OLD_choice] fromData success, data: " .. json.encode(self:toData()))
     else
-        print("[XX] [CHOICE] fromData error, data: " .. json.encode(data))
+        print("[XX] [OLD_choice] fromData error, data: " .. json.encode(data))
     end
     return found
   end
-  --function choice:
+  --function OLD_choice:
+_M.OLD_choice = OLD_choice
+
+
+--
+-- New Choice implementation
+--
+
+-- YANG allows the data model to segregate incompatible nodes into
+-- distinct choices using the "choice" and "case" statements.  The
+-- "choice" statement contains a set of "case" statements that define
+-- sets of schema nodes that cannot appear together.  Each "case" may
+-- contain multiple nodes, but each node may appear in only one "case"
+-- under a "choice".
+
+-- When an element from one case is created, all elements from all other
+-- cases are implicitly deleted.  The device handles the enforcement of
+-- the constraint, preventing incompatibilities from existing in the
+-- configuration.
+
+-- The choice and case nodes appear only in the schema tree, not in the
+-- data tree or NETCONF messages.  The additional levels of hierarchy
+-- are not needed beyond the conceptual schema.
+
+local case = util.subClass("case", _M.container)
+case_mt = { __index = case }
+
+-- a case is simply a wrapper for a container; it can contain multiple child
+-- nodes, or just one. The difference is that the container name will not show up in
+-- the data
+-- We use a separate type for safety
+  function case:create(nodeName)
+    local new_inst = _M.container:create(nodeName, mandatory)
+    new_inst.typeName = "case"
+    setmetatable(new_inst, case_mt)
+    return new_inst
+  end
+
+  function case:fromData_noerror(data)
+    print("[XX] [CASE] fromData_noerror with data: " .. json.encode(data))
+    print("[XX] my name: " .. self:getName())
+    print("[XX] my nodes: ")
+    for name,node in pairs(self.yang_nodes) do
+      print("[XX] NODE: " .. name)
+    end
+    -- can we have multiple cases? do they all need to match? (yes)
+    for name,node in pairs(self.yang_nodes) do
+      if node:fromData_noerror(data) then return true end
+    end
+    return false
+  end
+
+  -- TODO: this only works for single cases
+  function case:toData()
+    for name, node in pairs(self.yang_nodes) do
+      return node:toData()
+    end
+  end
+
+_M.case = case
+
+
+
+local choice = util.subClass("choice", _M.YangNode)
+choice_mt = { __index = choice }
+
+  function choice:create(nodeName, mandatory)
+    local new_inst = _M.YangNode:create("choice", nodeName, mandatory)
+    setmetatable(new_inst, choice_mt)
+    new_inst.cases = {}
+    self.active_case = nil
+    return new_inst
+  end
+
+  -- todo: rename to add_case when done?
+  -- this function adds any given type as a case with the given name
+  function choice:add_case_container(case_name, case_node)
+    -- wrap it in a case type with a fixed name?
+    local case_instance = _M.case:create(case_name, false)
+    case_instance:add_node(case_node)
+    self.cases[case_name] = case_instance
+  end
+
+  function choice:fromData_noerror(data)
+    -- go through each case; if we find one, clear all the others
+    -- should back up the active case here and put it back if nothing is found
+    -- (or keep ref and unset if it is a different one than the new one)
+    print("[XX] [CHOICE] trying fromData " .. self:getName() .. " with data " .. json.encode(data))
+    for casename, casenode in pairs(self.cases) do
+      if casenode:fromData_noerror(data) then
+        if self.active_case ~= nil and self.active_case ~= casenode then
+          self.active_case:clearData()
+        end
+        print("[XX] [CHOICE] found a matching case!")
+        self.active_case = casenode
+        print("[XX] [CHOICE] fromData success with data " .. json.encode(data))
+        return true
+      end
+    end
+    return false
+  end
+
+  function choice:hasValue()
+    return self.active_case ~= nil
+  end
+
+  function choice:toData()
+    if self.active_case ~= nil then
+      return self.active_case:toData()
+    end
+    return nil
+  end
+
+  function choice:clearData()
+    if self.active_case ~= nil then
+      self.active_case:clearData()
+    end
+    self.active_case = nil
+  end
+
 _M.choice = choice
 
+
 return _M
+

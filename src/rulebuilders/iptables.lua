@@ -21,6 +21,7 @@ end
 -- family_str, whether or not it actually resolves to an ip address
 local function replaceDNSNameNode(new_nodes, node, family_str, dnsname_str, network_source_or_dest, network_source_or_dest_v)
   local nd = node:toData()
+  if nd == nil then return false end
   if nd[family_str] and nd[family_str][dnsname_str] then
     local dnsname = nd[family_str][dnsname_str]
     local addrs = {}
@@ -182,7 +183,7 @@ local function aceToRulesIPTables(ace_node)
       print("[XX] NODE TO CONSIDER '" .. ace:getName() .. "': " .. json.encode(ace:toData()))
       for j,aceNode in pairs(ace.yang_nodes) do
         if aceNode:hasValue() then
-          local choice = aceNode:getActiveCase()
+          local choice = aceNode.active_case
           if choice:getName() == 'ipv4' then
             cmd = "iptables"
             for j,match_node in pairs(choice.yang_nodes) do

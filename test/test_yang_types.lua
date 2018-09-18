@@ -419,7 +419,7 @@ TestChoice = {}
   function TestChoice:setup()
   end
 
-  function TestChoice:DISABLED_testOne()
+  function TestChoice:testOne()
     local a = yang.basic_types.choice:create("my-choice", false)
     a:add_case_container("c1", yang.basic_types.string:create("a-string", false))
     a:add_case_container("c2", yang.basic_types.boolean:create("a-bool", false))
@@ -428,7 +428,8 @@ TestChoice = {}
     lu.assertEquals(a:hasValue(), false)
     lu.assertEquals(a:toData(), nil)
 
-    a:fromData_noerror('data string')
+    local fromdata_result = a:fromData_noerror('data string')
+    lu.assertEquals(fromdata_result, true)
     lu.assertEquals(a:hasValue(), true)
     lu.assertEquals(a:toData(), "data string")
 
@@ -446,8 +447,8 @@ TestChoice = {}
     --lu.assertEquals(a:toData(), 12345)
 
     a:clearData()
-    --lu.assertEquals(a:hasValue(), false)
-    lu.assertEquals(a:getActiveCase(), nil)
+    lu.assertEquals(a:hasValue(), false)
+    lu.assertEquals(a.active_case, nil)
 
   end
 
@@ -462,10 +463,10 @@ TestChoice = {}
     local cc2ci = yang.basic_types.boolean:create("choice-bool", false)
 
     cc1c:add_node(cc1ci)
-    cc:add_case("l1", cc1c)
+    cc:add_case_container("choice-val-int", cc1ci)
 
     cc2c:add_node(cc2ci)
-    cc:add_case("l2", cc2c)
+    cc:add_case_container("l2", cc2ci)
 
     c:add_node(cc)
 
@@ -478,7 +479,7 @@ TestChoice = {}
   function TestChoice:temp()
   end
 
-  function TestChoice:testChoiceInChoice()
+  function TestChoice:DISABLEDtestChoiceInChoice()
     -- Choice nodes themselves are not represented in the data.
     local c = yang.basic_types.container:create("my-container", false)
     local cc1 = yang.basic_types.choice:create("my-first-choice", false)
@@ -489,9 +490,9 @@ TestChoice = {}
     cc1a:add_node(yang.basic_types.uint16:create('an-int'), false)
 
     local cc1bc = yang.basic_types.choice:create("my-second-choice", false)
-    local cc1bc1 = yang.basic_types.container:create('second-choice-int-container', false)
-    cc1bc1:add_node(yang.basic_types.uint16:create('second-choice-int', false))
-    cc1bc:add_case('second-choice-integer', cc1bc1)
+    --local cc1bc1 = yang.basic_types.container:create('second-choice-int-container', false)
+    --cc1bc1:add_node()
+    cc1bc:add_case_container('second-choice-integer', yang.basic_types.uint16:create('second-choice-int', false))
 
     local cc1bc2 = yang.basic_types.container:create('second-choice-bool-container', false)
     cc1bc2:add_node(yang.basic_types.boolean:create('second-choice-bool', false))
@@ -506,7 +507,7 @@ TestChoice = {}
 
     --lu.assertEquals(c:toData(), {})
 
-    data = json.decode('{ "an-int": 4 }')
+    data = json.decode('{ "my-first-choice": { "an-int": 4 } }')
     c:fromData_noerror(data)
     lu.assertEquals(c:toData(), data)
 

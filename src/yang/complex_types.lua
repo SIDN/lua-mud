@@ -159,18 +159,11 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches_ipv4:add_node(basic_types.uint16:create('identification', false))
     -- TODO: -network
     local ipv4_destination_network_choice = basic_types.choice:create('destination-network', false, true)
-    ipv4_destination_network_choice:set_named(false)
-    local ipv4_destination_network_container = basic_types.container:create('destination-ipv4-network', false, true)
-    ipv4_destination_network_container:add_node(inet_ipv4_prefix:create('destination-ipv4-network', false))
-    ipv4_destination_network_choice:add_case('destination-ipv4-network', ipv4_destination_network_container)
+    ipv4_destination_network_choice:add_case_container('destination-ipv4-network', inet_ipv4_prefix:create('destination-ipv4-network', false))
     matches_ipv4:add_node(ipv4_destination_network_choice, false)
 
     local ipv4_source_network_choice = basic_types.choice:create('source-network', false, true)
-    --ipv4_source_network_choice:set_named(false)
-    -- this should be type ipv4-prefix
-    local ipv4_source_network_container = basic_types.container:create('source-ipv4-network', false, true)
-    ipv4_source_network_container:add_node(inet_ipv4_prefix:create('source-ipv4-network', false))
-    ipv4_source_network_choice:add_case('source-ipv4-network', ipv4_source_network_container)
+    ipv4_source_network_choice:add_case_container('source-ipv4-network', inet_ipv4_prefix:create('source-ipv4-network', false))
 
     matches_ipv4:add_node(ipv4_source_network_choice, false)
 
@@ -186,26 +179,14 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches_ipv6:add_node(basic_types.uint8:create('protocol', false))
     matches_ipv6:add_node(basic_types.string:create('ietf-acldns:dst-dnsname', false))
     matches_ipv6:add_node(basic_types.string:create('ietf-acldns:src-dnsname', false))
-    -- TODO: -network
-    local ipv6_destination_network_choice = basic_types.choice:create('destination-network', false, true)
-    ipv6_destination_network_choice:set_named(false)
-    --ipv6_destination_network_choice:add_case('destination-ipv6-network', inet_ipv6_prefix:create('destination-ipv6-network', false))
 
-    local ipv6_destination_network_container = basic_types.container:create('destination-ipv6-network', false, true)
-    ipv6_destination_network_container:add_node(inet_ipv6_prefix:create('destination-ipv6-network', false))
-    ipv6_destination_network_choice:add_case('destination-ipv6-network', ipv6_destination_network_container)
-
+    local ipv6_destination_network_choice = basic_types.choice:create('destination-ipv6-network', false)
+    ipv6_destination_network_choice:add_case_container('destination-ipv6-network', inet_ipv6_prefix:create('destination-ipv6-network', false))
     matches_ipv6:add_node(ipv6_destination_network_choice)
-    local ipv6_source_network_choice = basic_types.choice:create('source-network', false, true)
-    ipv6_source_network_choice:set_named(false)
-    -- this should be type ipv6-prefix
 
-    --ipv6_source_network_choice:add_case('source-ipv6-network', inet_ipv6_prefix:create('source-ipv6-network'))
-    local ipv6_source_network_container = basic_types.container:create('source-ipv6-network', false, true)
-    ipv6_source_network_container:add_node(inet_ipv6_prefix:create('source-ipv6-network', false))
-    ipv6_source_network_choice:add_case('source-ipv6-network', ipv6_source_network_container)
-
-    matches_ipv6:add_node(ipv6_source_network_choice, false)
+    local ipv6_source_network_choice = basic_types.choice:create('source-ipv6-network', false, true)
+    ipv6_source_network_choice:add_case_container('source-ipv6-network', inet_ipv6_prefix:create('source-ipv6-network', false))
+    matches_ipv6:add_node(ipv6_source_network_choice)
     -- TODO: flow-label
 
     local matches_tcp = basic_types.container:create('tcp')
@@ -223,15 +204,15 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     local source_port_range = basic_types.container:create('port-range', false)
     source_port_range:add_node(basic_types.uint16:create('lower-port'))
     source_port_range:add_node(basic_types.uint16:create('upper-port'))
-    source_port_choice:add_case('range', source_port_range)
+    source_port_choice:add_case_container('range', source_port_range)
 
     local source_port_operator = basic_types.container:create('port-operator', false, true)
     source_port_operator:add_node(basic_types.string:create('operator', false))
     source_port_operator:add_node(basic_types.uint16:create('port'))
-    source_port_choice:add_case('operator', source_port_operator)
+    source_port_choice:add_case_container('operator', source_port_operator)
 
-    source_port:add_node(source_port_choice)
-    matches_tcp:add_node(source_port)
+    --source_port:add_node(source_port_choice)
+    matches_tcp:add_node(source_port_choice)
 
     local destination_port = basic_types.container:create('destination-port', false)
     local destination_port_choice = basic_types.choice:create('destination-port', false, true)
@@ -239,15 +220,15 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     local destination_port_range = basic_types.container:create('port-range', false)
     destination_port_range:add_node(basic_types.uint16:create('lower-port'))
     destination_port_range:add_node(basic_types.uint16:create('upper-port'))
-    destination_port_choice:add_case('range', destination_port_range)
+    destination_port_choice:add_case_container('range', destination_port_range)
 
     local destination_port_operator = basic_types.container:create('port-operator', false, true)
     destination_port_operator:add_node(basic_types.string:create('operator', true))
     destination_port_operator:add_node(basic_types.uint16:create('port'), true)
-    destination_port_choice:add_case('operator', destination_port_operator)
+    destination_port_choice:add_case_container('operator', destination_port_operator)
 
-    destination_port:add_node(destination_port_choice)
-    matches_tcp:add_node(destination_port)
+    --destination_port:add_node(destination_port_choice)
+    matches_tcp:add_node(destination_port_choice)
 
     -- this is an augmentation from draft-mud
     -- TODO: type 'direction' (enum?)
@@ -265,15 +246,15 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     local udp_source_port_range = basic_types.container:create('port-range', false)
     udp_source_port_range:add_node(basic_types.uint16:create('lower-port'))
     udp_source_port_range:add_node(basic_types.uint16:create('upper-port'))
-    udp_source_port_choice:add_case('range', udp_source_port_range)
+    udp_source_port_choice:add_case_container('range', udp_source_port_range)
 
     local udp_source_port_operator = basic_types.container:create('port-operator', false, true)
     udp_source_port_operator:add_node(basic_types.string:create('operator'))
     udp_source_port_operator:add_node(basic_types.uint16:create('port'))
-    udp_source_port_choice:add_case('operator', udp_source_port_operator)
+    udp_source_port_choice:add_case_container('operator', udp_source_port_operator)
 
-    udp_source_port:add_node(udp_source_port_choice)
-    matches_udp:add_node(udp_source_port)
+    --udp_source_port:add_node(udp_source_port_choice)
+    matches_udp:add_node(udp_source_port_choice)
 
     local udp_destination_port = basic_types.container:create('destination-port', false, true)
     local udp_destination_port_choice = basic_types.choice:create('destination-port', false, true)
@@ -281,42 +262,28 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     local udp_destination_port_range = basic_types.container:create('port-range', false)
     udp_destination_port_range:add_node(basic_types.uint16:create('lower-port'))
     udp_destination_port_range:add_node(basic_types.uint16:create('upper-port'))
-    udp_destination_port_choice:add_case('range', udp_destination_port_range)
+    udp_destination_port_choice:add_case_container('range', udp_destination_port_range)
 
     local udp_destination_port_operator = basic_types.container:create('port-operator', false, true)
     udp_destination_port_operator:add_node(basic_types.string:create('operator', false))
     udp_destination_port_operator:add_node(basic_types.uint16:create('port'))
-    udp_destination_port_choice:add_case('operator', udp_destination_port_operator)
+    udp_destination_port_choice:add_case_container('operator', udp_destination_port_operator)
 
-    udp_destination_port:add_node(udp_destination_port_choice)
-    matches_udp:add_node(udp_destination_port)
+    --udp_destination_port:add_node(udp_destination_port_choice)
+    matches_udp:add_node(udp_destination_port_choice)
 
 
-    local matches_l1_choice = basic_types.choice:create('l1', false)
-    local matches_l2_choice = basic_types.choice:create('l2', false)
-    local matches_l3_choice = basic_types.choice:create('l3', false)
-    local matches_l4_choice = basic_types.choice:create('l4', false)
-    local matches_l5_choice = basic_types.choice:create('l5', false)
+    local matches_l1_choice = basic_types.choice:create('eth', false)
+    local matches_l2_choice = basic_types.choice:create('ipv4', false)
+    local matches_l3_choice = basic_types.choice:create('tcp', false)
+    local matches_l4_choice = basic_types.choice:create('udp', false)
+    local matches_l5_choice = basic_types.choice:create('ipv6', false)
 
-    local matches_eth_container = basic_types.container:create('eth', false)
-    matches_eth_container:add_node(matches_eth)
-    matches_l1_choice:add_case('eth', matches_eth_container)
-
-    local matches_ipv4_container = basic_types.container:create('ipv4', false)
-    matches_ipv4_container:add_node(matches_ipv4)
-    matches_l2_choice:add_case('ipv4', matches_ipv4_container)
-
-    local matches_tcp_container = basic_types.container:create('tcp', false)
-    matches_tcp_container:add_node(matches_tcp)
-    matches_l3_choice:add_case('tcp', matches_tcp_container)
-
-    local matches_udp_container = basic_types.container:create('udp', false)
-    matches_udp_container:add_node(matches_udp)
-    matches_l4_choice:add_case('udp', matches_udp_container)
-
-    local matches_ipv6_container = basic_types.container:create('ipv6', false)
-    matches_ipv6_container:add_node(matches_ipv6)
-    matches_l5_choice:add_case('ipv6', matches_ipv6_container)
+    matches_l1_choice:add_case_container('eth', matches_eth)
+    matches_l2_choice:add_case_container('ipv4', matches_ipv4)
+    matches_l3_choice:add_case_container('tcp', matches_tcp)
+    matches_l4_choice:add_case_container('udp', matches_udp)
+    matches_l5_choice:add_case_container('ipv6', matches_ipv6)
 
     matches:add_node(matches_l1_choice)
     matches:add_node(matches_l2_choice)
