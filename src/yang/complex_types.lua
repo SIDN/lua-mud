@@ -158,13 +158,12 @@ ietf_access_control_list_mt = { __index = ietf_access_control_list }
     matches_ipv4:add_node(basic_types.uint16:create('offset', false))
     matches_ipv4:add_node(basic_types.uint16:create('identification', false))
     -- TODO: -network
-    local ipv4_destination_network_choice = basic_types.choice:create('destination-network', false, true)
+    local ipv4_destination_network_choice = basic_types.choice:create('destination-ipv4-network', false, true)
     ipv4_destination_network_choice:add_case_container('destination-ipv4-network', inet_ipv4_prefix:create('destination-ipv4-network', false))
     matches_ipv4:add_node(ipv4_destination_network_choice, false)
 
-    local ipv4_source_network_choice = basic_types.choice:create('source-network', false, true)
+    local ipv4_source_network_choice = basic_types.choice:create('source-ipv4-network', false, true)
     ipv4_source_network_choice:add_case_container('source-ipv4-network', inet_ipv4_prefix:create('source-ipv4-network', false))
-
     matches_ipv4:add_node(ipv4_source_network_choice, false)
 
     -- mud augmentation

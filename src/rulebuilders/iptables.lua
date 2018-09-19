@@ -8,6 +8,22 @@ local RuleBuilder = {}
 local RuleBuilder_mt = { __index = RuleBuilder }
 
 
+local function getAddresses(name, family)
+  print("[XX] DNS LOOKUP: " .. name)
+  local result = {}
+  local hostaddrs = socket.dns.getaddrinfo(name)
+  if hostaddrs then
+    for i,a in pairs(hostaddrs) do
+      if family == nil or a.family == family then
+        table.insert(result, a.addr)
+      end
+    end
+  end
+  return result
+end
+
+
+
 function getIPv6Addresses(name)
   return getAddresses(name, 'inet6')
 end
@@ -21,6 +37,7 @@ end
 -- family_str, whether or not it actually resolves to an ip address
 local function replaceDNSNameNode(new_nodes, node, family_str, dnsname_str, network_source_or_dest, network_source_or_dest_v)
   local nd = node:toData()
+  print("[XX] NODE DATA DNS " .. node:getType() .. " " .. json.encode(nd))
   if nd == nil then return false end
   if nd[family_str] and nd[family_str][dnsname_str] then
     local dnsname = nd[family_str][dnsname_str]
@@ -45,9 +62,15 @@ local function replaceDNSNameNode(new_nodes, node, family_str, dnsname_str, netw
         nd[family_str][network_source_or_dest_v] = a .. "/32"
       end
       --nn:fromData_noerror(nd)
+      print("[XX] BECAUSE DNS ADD NEW NODE BEFORE: " ..json.encode(nn:toData()))
       nn:clearData()
-      nn:fromData_noerror(nd)
+      print("[XX] BECAUSE DNS ADD NEW NODE CLEARED: " ..json.encode(nn:toData()))
+      if not nn:fromData_noerror(nd) then
+        error("error creating new node from data")
+      end
       --nn:fromData_noerror(nd)
+      print("[XX] BECAUSE DNS ADD NEW DATA: " ..json.encode(nd))
+      print("[XX] BECAUSE DNS ADD NEW NODE: " ..json.encode(nn:toData()))
       table.insert(new_nodes, nn)
     end
     return true
@@ -79,10 +102,10 @@ local function ipMatchToRulePart(match_node, match)
   elseif match_node:getName() == 'source-port' then
       -- TODO: check operator and/or range
       rulepart = rulepart .. "--sport " .. match_node.active_case:getNode('port'):getValue() .. " "
-  elseif match_node:getName() == 'destination-network' then
+  elseif match_node:getName() == 'destination-ipv4-network' or match_node:getName() == 'destination-ipv6-network' then
       -- TODO: check operator and/or range
       rulepart = rulepart .. "-d " .. match_node.active_case:getValue() .. " "
-  elseif match_node:getName() == 'source-network' then
+  elseif match_node:getName() == 'source-ipv4-network' or match_node:getName() == 'source-ipv6-network' then
       -- TODO: check operator and/or range
       rulepart = rulepart .. "-s " .. match_node.active_case:getValue() .. " "
   else
@@ -151,18 +174,19 @@ local function aceToRulesIPTables(ace_node)
     -- source-ipv4-network or source-ipv6-network, depending on what it was
     -- (ipv6/destination-dnsname, etc.)
     local node_replaced = false
-    if replaceDNSNameNode(new_nodes, n, "ipv6", "ietf-acldns:src-dnsname", 'source-network', 'source-ipv6-network') then
-      node_replaced = true
-    end
-    if replaceDNSNameNode(new_nodes, n, "ipv6", "ietf-acldns:dst-dnsname", 'destination-network', 'destination-ipv6-network') then
-      node_replaced = true
-    end
-    if replaceDNSNameNode(new_nodes, n, "ipv4", "ietf-acldns:src-dnsname", 'source-network', 'source-ipv4-network') then
-      node_replaced = true
-    end
-    if replaceDNSNameNode(new_nodes, n, "ipv4", "ietf-acldns:dst-dnsname", 'destination-network', 'destination-ipv4-network') then
-      node_replaced = true
-    end
+
+--    if replaceDNSNameNode(new_nodes, n, "ipv6", "ietf-acldns:src-dnsname", 'source-network', 'source-ipv6-network') then
+--      node_replaced = true
+--    end
+--    if replaceDNSNameNode(new_nodes, n, "ipv6", "ietf-acldns:dst-dnsname", 'destination-network', 'destination-ipv6-network') then
+--      node_replaced = true
+--    end
+--    if replaceDNSNameNode(new_nodes, n, "ipv4", "ietf-acldns:src-dnsname", 'source-network', 'source-ipv4-network') then
+--      node_replaced = true
+--    end
+--    if replaceDNSNameNode(new_nodes, n, "ipv4", "ietf-acldns:dst-dnsname", 'destination-network', 'destination-ipv4-network') then
+--      node_replaced = true
+--    end
 
     if not node_replaced then
       table.insert(new_nodes, n)

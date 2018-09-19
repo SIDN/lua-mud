@@ -75,20 +75,6 @@ mud_container_mt = { __index = mud_container }
   end
 -- mud_container
 
-function getAddresses(name, family)
-  local result = {}
-  local hostaddrs = socket.dns.getaddrinfo(name)
-  if hostaddrs then
-    for i,a in pairs(hostaddrs) do
-      if family == nil or a.family == family then
-        table.insert(result, a.addr)
-      end
-    end
-  end
-  return result
-end
-
-
 local mud = {}
 mud_mt = { __index = mud }
   -- create an empty mud container

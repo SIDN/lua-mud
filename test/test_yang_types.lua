@@ -479,9 +479,7 @@ TestChoice = {}
   function TestChoice:temp()
   end
 
-  function TestChoice:DISABLEDtestChoiceInChoice()
-    -- Choice nodes themselves are not represented in the data.
-    local c = yang.basic_types.container:create("my-container", false)
+function TestChoice:FOO()
     local cc1 = yang.basic_types.choice:create("my-first-choice", false)
     -- TODO: make these cases instead of plain containers, to prevent confusion?
     local cc1a = yang.basic_types.container:create("first-choice-container-one", false)
@@ -496,17 +494,43 @@ TestChoice = {}
 
     local cc1bc2 = yang.basic_types.container:create('second-choice-bool-container', false)
     cc1bc2:add_node(yang.basic_types.boolean:create('second-choice-bool', false))
-    cc1bc:add_case('second-choice-boolean', cc1bc2)
+    cc1bc:add_case_container('second-choice-boolean', cc1bc2)
     cc1b:add_node(cc1bc)
 
-    cc1:add_case('first-choice', cc1a)
-    cc1:add_case('second-choice', cc1b)
-    c:add_node(cc1)
+    cc1:add_case_container('first-choice', cc1a)
+    cc1:add_case_container('second-choice', cc1b)
+end
 
+  function TestChoice:testChoiceInChoice()
+    -- Choice nodes themselves are not represented in the data.
+    local c = yang.basic_types.container:create("my-container", false)
+
+    local choice_one = yang.basic_types.choice:create("my-first-choice", false)
+
+    -- The first choice has one case: a container 'an-int' with an integer value
+    local choice_one_case = yang.basic_types.container:create("an-int", false)
+    local choice_one_case_data = yang.basic_types.uint16:create('an-int', false)
+    choice_one_case:add_node(choice_one_case_data)
+    choice_one:add_case_container("an-int", choice_one_case)
+
+    c:add_node(choice_one)
+
+    -- The second choice has two cases: the first is a direct string
+    -- The second is yet another choice, an int or a bool
+    local choice_two = yang.basic_types.choice:create("my-second-choice", false)
+    choice_two:add_case_container("direct-string", yang.basic_types.string:create("string-opt", false))
+
+    local subchoice = yang.basic_types.choice:create("my-third-choice", false)
+    subchoice:add_case_container("a-bool", yang.basic_types.boolean:create("bool-opt", false))
+    subchoice:add_case_container("an-octet", yang.basic_types.uint8:create("an-octet", false))
+    choice_two:add_case_container("subchoice", subchoice)
+    
+    c:add_node(choice_two)
     local data = {}
 
     --lu.assertEquals(c:toData(), {})
 
+    -- top-level tests
     data = json.decode('{ "my-first-choice": { "an-int": 4 } }')
     c:fromData_noerror(data)
     lu.assertEquals(c:toData(), data)
@@ -514,48 +538,54 @@ TestChoice = {}
     c:clearData()
     lu.assertEquals(c:toData(), nil)
 
+    data = json.decode('{ "my-second-choice": "foobar" }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), data)
+
+    data = json.decode('{ "my-second-choice": true }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), data)
+
+    data = json.decode('{ "my-second-choice": 8 }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), data)
+
+    c:clearData()
+    lu.assertEquals(c:toData(), nil)
+
+    -- 300 > 255 so this should fail (no choice match)
+    data = json.decode('{ "my-second-choice": 300 }')
+    c:fromData_noerror(data)
+    lu.assertEquals(c:toData(), nil)
+
+
+    -- try the choice nodes directly
     data = json.decode('{ "an-int": 4 }')
-    c:fromData_noerror(data)
-    lu.assertEquals(c:toData(), data)
+    choice_one:fromData_noerror(data)
+    lu.assertEquals(choice_one:toData(), data)
+
+    c:clearData()
+
+    data = true
+    choice_two:fromData_noerror(data)
+    lu.assertEquals(choice_two:toData(), data)
+
+    c:clearData()
+
+    data = 255
+    choice_two:fromData_noerror(data)
+    lu.assertEquals(choice_two:toData(), data)
+
+    data = 257
+    choice_two:fromData_noerror(data)
+    lu.assertEquals(choice_two:toData(), 255)
 
     c:clearData()
     lu.assertEquals(c:toData(), nil)
 
-    data = json.decode('{ "foobar": "aaa" }')
-    c:fromData_noerror(data)
-    lu.assertEquals(c:toData(), nil)
-
-    data = json.decode('{ "foobar": 1 }')
-    c:fromData_noerror(data)
-    lu.assertEquals(c:toData(), nil)
-
-    data = json.decode('{"first-choice-container-one": { "foobar": 1 } }')
-    c:fromData_noerror(data)
-    lu.assertEquals(c:toData(), nil)
-
-    -- (note the first-choice container is the wrong one)
-    data = json.decode('{ "second-choice-bool": true }')
-    c:fromData_noerror(data)
-    lu.assertEquals(c:toData(), data)
-
-    c:clearData()
-    lu.assertEquals(c:toData(), nil)
-
-    -- TODO this should fail
-    data = json.decode('{"first-choice-container-two": { "second-choice-bool": true } }')
-    c:fromData_noerror(data)
-    lu.assertEquals(c:toData(), json.decode('{ "second-choice-bool": true }'))
-
-    data = json.decode('{ "second-choice-int": 1 }')
-    c:fromData_noerror(data)
-    lu.assertEquals(c:toData(), data)
-
-    c:clearData()
-    data = json.decode('{"first-choice-container-two": { "second-choice-int": "foo" } }')
-    c:fromData_noerror(data)
-    lu.assertEquals(c:toData(), nil)
   end
 -- class TestChoice
+
 
 
 
