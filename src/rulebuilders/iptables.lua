@@ -58,6 +58,7 @@ end
 
 local function ipMatchToRulePart(match_node, match)
   rulepart = ""
+  print("[XX] ipMatchToRulePart on " .. match_node:getType() .. " data: " .. json.encode(match_node:toData()))
 
   if match_node:getName() == 'ietf-acldns:dst-dnsname' then
       rulepart = rulepart .. "daddr " .. match_node:toData() .. " "
@@ -94,6 +95,7 @@ end
 function tcpMatchToRulePart(match_node, match)
   if match_node == nil then error("match_node is nil") end
   local rulepart = ""
+  print("[XX] TCPMATCHTORULEPART " .. match_node:getType() .. " " .. json.encode(match_node:toData()))
   if match_node:hasValue() then
       if match_node:getName() == 'ietf-mud:direction-initiated' then
           -- TODO: does this have any influence on the actual rule?
@@ -105,17 +107,22 @@ function tcpMatchToRulePart(match_node, match)
               error('unknown direction-initiated: ' .. match_node:toData())
           end
       elseif match_node:getName() == 'source-port' then
-          -- TODO: check operator and/or range
-          rulepart = rulepart .. "--sport " .. match_node:getChild().active_case:getNode('port'):getValue() .. " "
+          -- TODO: check operator and/or range (i.e. other choice options)
+          local case_node = match_node.active_case:getCaseNode()
+          rulepart = rulepart .. "--sport " .. case_node:getNode('port'):getValue() .. " "
       elseif match_node:getName() == 'destination-port' then
           -- TODO: check operator and/or range
-
-          local port_case = match_node:getChild().active_case
+          print("[XX] MATCH NODE GETNAME DESTINATION PORT " .. match_node:getName())
+          print(json.encode(match_node:toData()))
+          local port_case = match_node.active_case:getCaseNode()
+          print("[XX] MATCH NODE GETNAME DESTINATION PORT " .. port_case:getName())
+          print(json.encode(port_case:toData()))
+          print(port_case:getType())
           -- TODO: chech which case it is, for now we assume operator->eq
 
           rulepart = rulepart .. "--dport " .. port_case:getNode("port"):getValue() .. " "
       else
-          error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
+          error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() .. " type " .. match_node:getType())
       end
   end
   return rulepart
@@ -186,7 +193,7 @@ local function aceToRulesIPTables(ace_node)
           local choice = aceNode.active_case
           if choice:getName() == 'ipv4' then
             cmd = "iptables"
-            for j,match_node in pairs(choice.yang_nodes) do
+            for j,match_node in pairs(choice:getCaseNode().yang_nodes) do
               if match_node:hasValue() then
                 print("[XX] handling " .. json.encode(match_node:toData()))
                 rulematches = rulematches .. ipMatchToRulePart(match_node, ace_node)
@@ -194,14 +201,14 @@ local function aceToRulesIPTables(ace_node)
             end
           elseif choice:getName() == 'ipv6' then
             cmd = "ip6tables"
-            for j,match_node in pairs(choice.yang_nodes) do
+            for j,match_node in pairs(choice:getCaseNode().yang_nodes) do
               if match_node:hasValue() then
                 print("[XX] handling " .. json.encode(match_node:toData()))
                 rulematches = rulematches .. ipMatchToRulePart(match_node, ace_node)
               end
             end
           elseif choice:getName() == 'tcp' then
-            for j,match_node in pairs(choice.yang_nodes) do
+            for j,match_node in pairs(choice:getCaseNode().yang_nodes) do
               if match_node:hasValue() then
                 print("[XX] handlingTCP " .. json.encode(match_node:toData()))
                 rulematches = rulematches .. tcpMatchToRulePart(match_node, ace_node)

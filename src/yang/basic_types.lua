@@ -888,6 +888,11 @@ case_mt = { __index = case }
     end
   end
 
+  function case:getCaseNode()
+    for name, node in pairs(self.yang_nodes) do
+      return node
+    end
+  end
 _M.case = case
 
 

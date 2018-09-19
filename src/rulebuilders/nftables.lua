@@ -58,54 +58,56 @@ local function aceToRules(ace_node)
         local direction = nil
         local rulematches = ""
         for i,match_choice in pairs(ace:getNode('matches').yang_nodes) do
-            local match = match_choice:getActiveCase()
-            if match ~= nil then
-                if match:getName() == 'ipv4' then
-                    v6_or_v4 = "ip "
-                    for j,match_node in pairs(match.yang_nodes) do
-                        if match_node:hasValue() then
-                            rulematches = rulematches .. ipMatchToRulePart(match_node)
-                        end
-                    end
-                elseif match:getName() == 'ipv6' then
-                    v6_or_v4 = "ip6 "
-                    for j,match_node in pairs(match.yang_nodes) do
-                        if match_node:hasValue() then
-                            rulematches = rulematches .. ipMatchToRulePart(match_node)
-                        end
-                    end
-                    -- TODO
-                    -- TODO
-                elseif match:getName() == 'tcp' then
-                    rulematches = rulematches .. "tcp "
-                    for j,match_node in pairs(match.yang_nodes) do
-                        if match_node:hasValue() then
-                            if match_node:getName() == 'ietf-mud:direction-initiated' then
-                                -- TODO: does this have any influence on the actual rule?
-                                if match_node:toData() == 'from-device' then
-                                    direction = "filter output "
-                                elseif match_node:toData() == 'to-device' then
-                                    direction = "filter input "
-                                else
-                                    error('unknown direction-initiated: ' .. match_node:toData())
-                                end
-                            elseif match_node:getName() == 'source-port' then
-                                -- TODO: check operator and/or range
-                                rulematches = rulematches .. "sport " .. match_node:getChild():getActiveCase():getNode('port'):getValue() .. " "
-                            elseif match_node:getName() == 'destination-port' then
-                                -- TODO: check operator and/or range
-
-                                local port_case = match_node:getChild():getActiveCase()
-                                -- TODO: chech which case it is, for now we assume operator->eq
-                                
-                                rulematches = rulematches .. "dport " .. port_case:getNode("port"):getValue() .. " "
-                            else
-                                error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
+            if match_choice.active_case ~= nil then
+                local match = match_choice.active_case:getCaseNode()
+                if match ~= nil then
+                    if match:getName() == 'ipv4' then
+                        v6_or_v4 = "ip "
+                        for j,match_node in pairs(match.yang_nodes) do
+                            if match_node:hasValue() then
+                                rulematches = rulematches .. ipMatchToRulePart(match_node)
                             end
                         end
+                    elseif match:getName() == 'ipv6' then
+                        v6_or_v4 = "ip6 "
+                        for j,match_node in pairs(match.yang_nodes) do
+                            if match_node:hasValue() then
+                                rulematches = rulematches .. ipMatchToRulePart(match_node)
+                            end
+                        end
+                        -- TODO
+                        -- TODO
+                    elseif match:getName() == 'tcp' then
+                        rulematches = rulematches .. "tcp "
+                        for j,match_node in pairs(match.yang_nodes) do
+                            if match_node:hasValue() then
+                                if match_node:getName() == 'ietf-mud:direction-initiated' then
+                                    -- TODO: does this have any influence on the actual rule?
+                                    if match_node:toData() == 'from-device' then
+                                        direction = "filter output "
+                                    elseif match_node:toData() == 'to-device' then
+                                        direction = "filter input "
+                                    else
+                                        error('unknown direction-initiated: ' .. match_node:toData())
+                                    end
+                                elseif match_node:getName() == 'source-port' then
+                                    -- TODO: check operator and/or range
+                                    rulematches = rulematches .. "sport " .. match_node.active_case:getCaseNode():getNode('port'):getValue() .. " "
+                                elseif match_node:getName() == 'destination-port' then
+                                    -- TODO: check operator and/or range
+
+                                    local port_case = match_node.active_case:getCaseNode()
+                                    -- TODO: chech which case it is, for now we assume operator->eq
+                                    
+                                    rulematches = rulematches .. "dport " .. port_case:getNode("port"):getValue() .. " "
+                                else
+                                    error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() .. " type: " .. match:getType() )
+                                end
+                            end
+                        end
+                    else
+                        error('unknown match type: ' .. match:getName() .. " type: " ..match:getType())
                     end
-                else
-                    error('unknown match type: ' .. match:getName())
                 end
             end
         end
