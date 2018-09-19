@@ -406,7 +406,9 @@ container_mt = { __index = container }
   end
 
   function container:clearData()
+    print("[XX] CLEAR CONTAINER " .. self:getName())
     for node_name, node in pairs(self.yang_nodes) do
+      print("[XX] about to call clear on child " .. node:getName())
       node:clearData()
     end
   end
@@ -574,7 +576,7 @@ list_mt = { __index = list }
   end
 
   function list:clearData()
-    self.entry_nodes = {}
+    self.value = {}
   end
 
   -- Returns the list elements as raw data
@@ -891,6 +893,12 @@ case_mt = { __index = case }
   function case:getCaseNode()
     for name, node in pairs(self.yang_nodes) do
       return node
+    end
+  end
+
+  function case:clearData()
+    for name, node in pairs(self.yang_nodes) do
+      node:clearData()
     end
   end
 _M.case = case
