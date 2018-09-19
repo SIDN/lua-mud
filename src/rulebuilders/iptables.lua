@@ -74,16 +74,16 @@ local function ipMatchToRulePart(match_node, match)
       end
   elseif match_node:getName() == 'destination-port' then
       -- TODO: check operator and/or range
-      rulepart = rulepart .. "--dport " .. match_node:getActiveCase():getNode('port'):getValue() .. " "
+      rulepart = rulepart .. "--dport " .. match_node.active_case:getNode('port'):getValue() .. " "
   elseif match_node:getName() == 'source-port' then
       -- TODO: check operator and/or range
-      rulepart = rulepart .. "--sport " .. match_node:getActiveCase():getNode('port'):getValue() .. " "
+      rulepart = rulepart .. "--sport " .. match_node.active_case:getNode('port'):getValue() .. " "
   elseif match_node:getName() == 'destination-network' then
       -- TODO: check operator and/or range
-      rulepart = rulepart .. "-d " .. match_node:getActiveCase():getValue() .. " "
+      rulepart = rulepart .. "-d " .. match_node.active_case:getValue() .. " "
   elseif match_node:getName() == 'source-network' then
       -- TODO: check operator and/or range
-      rulepart = rulepart .. "-s " .. match_node:getActiveCase():getValue() .. " "
+      rulepart = rulepart .. "-s " .. match_node.active_case:getValue() .. " "
   else
       error("NOTIMPL: unknown match type " .. match_node:getName() .. " in match rule " .. match:getName() )
   end
@@ -106,11 +106,11 @@ function tcpMatchToRulePart(match_node, match)
           end
       elseif match_node:getName() == 'source-port' then
           -- TODO: check operator and/or range
-          rulepart = rulepart .. "--sport " .. match_node:getChild():getActiveCase():getNode('port'):getValue() .. " "
+          rulepart = rulepart .. "--sport " .. match_node:getChild().active_case:getNode('port'):getValue() .. " "
       elseif match_node:getName() == 'destination-port' then
           -- TODO: check operator and/or range
 
-          local port_case = match_node:getChild():getActiveCase()
+          local port_case = match_node:getChild().active_case
           -- TODO: chech which case it is, for now we assume operator->eq
 
           rulepart = rulepart .. "--dport " .. port_case:getNode("port"):getValue() .. " "

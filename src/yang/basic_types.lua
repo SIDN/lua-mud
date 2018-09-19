@@ -627,12 +627,21 @@ list_mt = { __index = list }
       parent_str = self.parent:getPath(self) .. "/"
     end
     if requester ~= nil then
+      if requester:getName() == "matches" then
+        print("[XX] My name is " .. self:getName())
+        print("[XX] I need to match " .. tostring(requester))
+        for i,n in pairs(self.value) do
+          print("[XX] I have: " .. tostring(n))
+        end
+      end
       index_str = "[?]"
       for i,n in pairs(self.value) do
+        print("[XX] TRYING WITH " .. n:getName() .. " " .. tostring(n))
         if n == requester then
           index_str = "[" .. i .. "]"
         end
       end
+      print("[XX] DONE TRYING ")
     end
     return parent_str .. self:getName() .. index_str
   end
@@ -901,6 +910,7 @@ choice_mt = { __index = choice }
     local case_instance = _M.case:create(case_name, false)
     case_instance:add_node(case_node)
     self.cases[case_name] = case_instance
+    case_instance:setParent(self)
   end
 
   function choice:fromData_noerror(data)
