@@ -1,5 +1,5 @@
 #!/usr/bin/env lua
 
-lmc = require 'mud-cli-read'
+lmc = require 'mud.mud-cli-read'
 
 lmc.main(arg)
