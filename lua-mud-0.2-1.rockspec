@@ -4,7 +4,7 @@ source = {
     url = "git://github.com/SIDN/lua-mud"
 }
 description = {
-    summary = "A Manufacturer Usage Description (MUD) library in Lua",
+    summary = "A Manufacturer Usage Description (MUD) library in Lua (work in progress)",
     detailed = [[
         Work in progress
     ]],
