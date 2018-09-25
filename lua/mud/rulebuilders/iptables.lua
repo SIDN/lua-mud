@@ -107,7 +107,7 @@ local function ipMatchToRulePart(match_node, match)
   return rulepart
 end
 
-function tcpMatchToRulePart(match_node, match)
+function matchToRulePart(match_node, match)
   if match_node == nil then error("match_node is nil") end
   local rulepart = ""
   if match_node:hasValue() then
@@ -207,7 +207,13 @@ local function aceToRulesIPTables(ace_node)
         elseif choice:getName() == 'tcp' then
           for j,match_node in pairs(choice:getCaseNode().yang_nodes) do
             if match_node:hasValue() then
-              rulematches = rulematches .. tcpMatchToRulePart(match_node, ace_node)
+              rulematches = rulematches .. matchToRulePart(match_node, ace_node)
+            end
+          end
+        elseif choice:getName() == 'udp' then
+          for j,match_node in pairs(choice:getCaseNode().yang_nodes) do
+            if match_node:hasValue() then
+              rulematches = rulematches .. matchToRulePart(match_node, ace_node)
             end
           end
         else
