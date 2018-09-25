@@ -1,10 +1,10 @@
 #!/usr/bin/lua
 
-local mu = require("mud")
+local mu = require("mud.mud")
 local lu = require("luaunit")
 
-local iptables_rb = require("rulebuilders/iptables")
-local nftables_rb = require("rulebuilders/nftables")
+local iptables_rb = require("mud.rulebuilders.iptables")
+local nftables_rb = require("mud.rulebuilders.nftables")
 
 local json = require("cjson")
 

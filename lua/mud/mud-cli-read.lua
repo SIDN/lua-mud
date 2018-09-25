@@ -2,7 +2,7 @@
 -- Implementation of the command line interface as called by 'lua-mud(1)'
 --
 
-local lua_mud = require 'mud'
+local lua_mud = require 'mud.mud'
 
 local mud_cli = {}
 
@@ -63,20 +63,21 @@ function print_mud_summary(mud)
 
   print("Globally defined acls:")
   for _,acl in pairs(mud:get_acls()) do
-    print(" " .. acl:get_name())
-    for _,r in pairs(acl:get_rules()) do
-      print(" " .. r:get_name())
+    print(" " .. acl:getNode("name"):getValue())
+    local aces = acl:getNode("aces")
+    for _,r in pairs(aces:getNode("ace"):getValue()) do
+      print("  - " .. r:getNode("name"):getValue())
     end
   end
 
   print("From-device policy:")
-  for acl_n, acl_type in pairs(mud:get_from_device_acls()) do
-    print(" " .. acl_n .. " (" .. acl_type .. ")")
+  for acl_n, pnode in pairs(mud:get_from_device_policy_acls()) do
+    print(" " .. acl_n .. " (" .. pnode:getNode("name"):getValue() .. ")")
   end
 
   print("To-device policy:")
-  for acl_n, acl_type in pairs(mud:get_to_device_acls()) do
-    print(" " .. acl_n .. " (" .. acl_type .. ")")
+  for acl_n, pnode in pairs(mud:get_to_device_policy_acls()) do
+    print(" " .. acl_n .. " (" .. pnode:getNode("name"):getValue() .. ")")
   end
 end
 
@@ -84,16 +85,11 @@ end
 -- external functions
 --
 function main(args)
-  print("hello, world")
   mudfile = parse_args(args)
   local mud = lua_mud.mud:create()
   mud:parseFile(mudfile)
   --local mud, err = lua_mud.mud_create_from_file(mudfile)
-  --if mud == nil then
-  -- print("Error: " .. err)
-  --else
-  -- print_mud_summary(mud)
-  --end
+  print_mud_summary(mud)
 end
 
 mud_cli.main = main

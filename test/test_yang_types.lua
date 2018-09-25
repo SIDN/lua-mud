@@ -1,6 +1,6 @@
 #!/usr/bin/lua
 
-local yang = require "yang"
+local yang = require("mud.yang")
 local lu = require('luaunit')
 local json = require('cjson')
 

@@ -2,9 +2,9 @@ local json = require("json")
 
 local _M = {}
 
-local util = require("yang.util")
-local basic_types = require("yang.basic_types")
-local complex_types = require("yang.complex_types")
+local util = require("mud.yang.util")
+local basic_types = require("mud.yang.basic_types")
+local complex_types = require("mud.yang.complex_types")
 
 _M.util = util
 _M.basic_types = basic_types

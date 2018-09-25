@@ -1,4 +1,4 @@
-local yang = require("yang")
+local yang = require("mud.yang")
 
 --
 -- currently, we assume the following initialization

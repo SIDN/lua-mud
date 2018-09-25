@@ -1,7 +1,7 @@
 -- MUD container
 
 local json = require("cjson")
-local yang = require "yang"
+local yang = require("mud.yang")
 
 local _M = {}
 
@@ -110,6 +110,39 @@ function mud:parseFile(json_file_name)
   io.close( file )
   self:parseJSON(contents)
 end
+
+function mud:get_mud_url()
+  return yang.findSingleNode(self.mud_container, "/ietf-mud:mud/mud-url"):getValue()
+end
+
+function mud:get_last_update()
+  return yang.findSingleNode(self.mud_container, "/ietf-mud:mud/last-update"):getValue()
+end
+
+function mud:get_cache_validity()
+  return yang.findSingleNode(self.mud_container, "/ietf-mud:mud/cache-validity"):getValue()
+end
+
+function mud:get_is_supported()
+  return yang.findSingleNode(self.mud_container, "/ietf-mud:mud/is-supported"):getValue()
+end
+
+function mud:get_systeminfo()
+  return yang.findSingleNode(self.mud_container, "/ietf-mud:mud/systeminfo"):getValue()
+end
+
+function mud:get_acls()
+  return yang.findSingleNode(self.mud_container, "/ietf-access-control-list:acls/acl"):getValue()
+end
+
+function mud:get_from_device_policy_acls()
+  return yang.findSingleNode(self.mud_container, "/ietf-mud:mud/from-device-policy/access-lists/access-list"):getValue()
+end
+
+function mud:get_to_device_policy_acls()
+  return yang.findSingleNode(self.mud_container, "/ietf-mud:mud/to-device-policy/access-lists/access-list"):getValue()
+end
+
 _M.mud = mud
 
 return _M

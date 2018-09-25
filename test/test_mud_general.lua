@@ -1,6 +1,6 @@
 #!/usr/bin/lua
 
-local mu = require("mud")
+local mu = require("mud.mud")
 local lu = require("luaunit")
 
 local json = require("cjson")

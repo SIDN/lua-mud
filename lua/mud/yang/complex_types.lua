@@ -1,5 +1,5 @@
-local util = require("yang.util")
-local basic_types = require("yang.basic_types")
+local util = require("mud.yang.util")
+local basic_types = require("mud.yang.basic_types")
 
 -- Types based on other types
 --

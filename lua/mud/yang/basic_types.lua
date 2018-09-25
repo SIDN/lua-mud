@@ -3,7 +3,7 @@ local url = require("socket.url")
 
 local json = require("cjson")
 
-local util = require("yang.util")
+local util = require("mud.yang.util")
 
 local _M = {}
 
