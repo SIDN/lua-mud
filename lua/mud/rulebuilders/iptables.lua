@@ -136,7 +136,8 @@ function matchToRulePart(match_node, match)
   return rulepart
 end
 
-local function aceToRulesIPTables(ace_node)
+-- TODO: environment, callable, and -A/-D should really be done outside of this function
+local function aceToRulesIPTables(ace_node, environment, environment_is_source, is_delete)
   local nodes = ace_node:getAll()
   -- small trick, use getParent() so we can have a path request on the entire list
   local nodes = yang.findNodes(ace_node:getParent(), "ace[*]/matches")
@@ -183,37 +184,54 @@ local function aceToRulesIPTables(ace_node)
 
   for i,ace in pairs(new_nodes) do
     local rule = ""
-    local chain = "-A FORWARD"
+    local chain
+    if is_delete then
+      chain = "-D FORWARD"
+    else
+      chain = "-A FORWARD"
+    end
     local cmd = "iptables "
-    local rulematches = ""
+    -- order may matter...
+    local rulematches1 = ""
+    local rulematches2 = ""
 
     for j,aceNode in pairs(ace.yang_nodes) do
       if aceNode:hasValue() then
         local choice = aceNode.active_case
         if choice:getName() == 'ipv4' then
           cmd = "iptables"
+          if environment_is_source then
+            rulematches1 = rulematches1 .. "-s " .. environment:getDeviceIPv4() .. " "
+          else
+            rulematches1 = rulematches1 .. "-d " .. environment:getDeviceIPv4() .. " "
+          end
           for j,match_node in pairs(choice:getCaseNode().yang_nodes) do
             if match_node:hasValue() then
-              rulematches = rulematches .. ipMatchToRulePart(match_node, ace_node)
+              rulematches1 = rulematches1 .. ipMatchToRulePart(match_node, ace_node)
             end
           end
         elseif choice:getName() == 'ipv6' then
           cmd = "ip6tables"
+          if environment_is_source then
+            rulematches1 = rulematches1 .. "-s " .. environment:getDeviceIPv6() .. " "
+          else
+            rulematches1 = rulematches1 .. "-d " .. environment:getDeviceIPv6() .. " "
+          end
           for j,match_node in pairs(choice:getCaseNode().yang_nodes) do
             if match_node:hasValue() then
-              rulematches = rulematches .. ipMatchToRulePart(match_node, ace_node)
+              rulematches1 = rulematches1 .. ipMatchToRulePart(match_node, ace_node)
             end
           end
         elseif choice:getName() == 'tcp' then
           for j,match_node in pairs(choice:getCaseNode().yang_nodes) do
             if match_node:hasValue() then
-              rulematches = rulematches .. matchToRulePart(match_node, ace_node)
+              rulematches2 = rulematches2 .. matchToRulePart(match_node, ace_node)
             end
           end
         elseif choice:getName() == 'udp' then
           for j,match_node in pairs(choice:getCaseNode().yang_nodes) do
             if match_node:hasValue() then
-              rulematches = rulematches .. matchToRulePart(match_node, ace_node)
+              rulematches2 = rulematches2 .. matchToRulePart(match_node, ace_node)
             end
           end
         else
@@ -221,6 +239,7 @@ local function aceToRulesIPTables(ace_node)
         end
       end
     end
+    local rulematches = rulematches1 .. rulematches2
 
     local name = ace:getParent():getNode('name'):getValue()
 
@@ -245,7 +264,7 @@ function _M.create_rulebuilder()
   return new_inst
 end
 
-function RuleBuilder:build_rules(mud, settings)
+function RuleBuilder:build_rules(mud, environment, delete_rules)
   local rules = {}
   -- find out which incoming and which outgoiing rules we have
   local from_device_acl_nodelist = mud.mud_container:getNode("ietf-mud:mud/from-device-policy/access-lists/access-list")
@@ -256,7 +275,7 @@ function RuleBuilder:build_rules(mud, settings)
     -- but xpath is too complex. need to find right level.
     local found = false
     local acl = yang.findNodeWithProperty(mud.mud_container, "acl", "name", acl_name)
-    yang.util.table_extend(rules, aceToRulesIPTables(acl:getNode('aces'):getNode('ace')))
+    yang.util.table_extend(rules, aceToRulesIPTables(acl:getNode('aces'):getNode('ace'), environment, true, delete_rules))
   end
 
   local to_device_acl_nodelist = mud.mud_container:getNode("ietf-mud:mud/to-device-policy/access-lists/access-list")
@@ -267,7 +286,7 @@ function RuleBuilder:build_rules(mud, settings)
     -- but xpath is too complex. need to find right level.
     local found = false
     local acl = yang.findNodeWithProperty(mud.mud_container, "acl", "name", acl_name)
-    yang.util.table_extend(rules, aceToRulesIPTables(acl:getNode('aces'):getNode('ace')))
+    yang.util.table_extend(rules, aceToRulesIPTables(acl:getNode('aces'):getNode('ace'), environment, false, delete_rules))
   end
   return rules
 end
