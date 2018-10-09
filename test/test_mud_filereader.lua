@@ -22,11 +22,71 @@ local function write_json_file(filename, data)
   f:close()
 end
 
+-- a and b should be JSON-serializable (we use json to both print and clone data)
+function data_diff(a, b, only_in_a, only_in_b, different)
+  -- clone one of them first
+  local similar = true
+  local b_json = json.encode(b)
+  print("[XX] B IN JSON: '" .. b_json .. "'")
+  local c = json.decode(json.encode(b))
+  if c == nil then
+    error("Nil C")
+  end
+  if only_in_a == nil then
+    only_in_a = {}
+  end
+  if only_in_b == nil then
+    only_in_b = {}
+  end
+  if different == nil then
+    different = {}
+  end
+  for el_n, el_v in pairs(a) do
+    if c[el_n] == nil then
+      print("[XX] DIFFERENCE: ELEMENT " .. el_n .. " NOT PRESENT IN b")
+      similar = false
+      table.insert(only_in_a, json.encode(left_in_b))
+    else
+      tp = type(el_v)
+      if type(c[el_n]) ~= tp then
+        print("[XX] DIFFERENCE: ELEMENT " .. el_n .. " DIFFERS IN TYPE")
+        table.insert(different, json.encode(left_in_b))
+        similar = false
+      end
+      -- if the value is a table, recurse, if not, just get rid of it
+      if tp == "table" then
+        similar = data_diff(el_v, c[el_n], only_in_a, only_in_b, different) and similar
+        --print("[Xx]  SIMILAR NOW: " .. json.encode(similar))
+        -- always remove it, errors are done by the recursive call
+        c[el_n] = nil
+      else
+        if el_v ~= c[el_n] then
+          print("[XX] DIFFERENCE: ELEMENT " .. el_n .. " (type " .. tp .. ")DIFFERS IN VALUE")
+        else
+          c[el_n] = nil
+        end
+      end
+    end
+  end
+  local left_in_b = json.encode(c)
+  if left_in_b ~= "{}" then
+    print("[XX] DIFFERENCE: ELEMENT " .. left_in_b .. " NOT PRESENT IN a")
+    table.insert(only_in_b, left_in_b)
+    similar = false
+  end
+  return similar, only_in_a, only_in_b, different
+end
 
 TestMudFileReader = {} --class
   function TestMudFileReader:setup()
     self.a = mu.mud.create()
     self.b = mu.mud.create()
+  end
+
+  function TestMudFileReader:testDiff()
+    self.a:parseFile("../examples/example_from_cira.json")
+    local input_data = read_json_file("../examples/example_from_cira.json")
+    local similar, only_in_a, only_in_b, different = data_diff(self.a.mud_container:toData(), input_data)
   end
 
   function TestMudFileReader:testDraftExample()
@@ -62,7 +122,12 @@ TestMudFileReader = {} --class
         --print(json.encode(b.mud_container:toData()))
         --print("[XX] end of full data")
 
-        lu.assertEquals(b.mud_container:toData(), input_data)
+        local similar, only_in_a, only_in_b, different = data_diff(b.mud_container:toData(), input_data)
+        lu.assertEquals(different, {}, "Data different in input and output for: " .. filename)
+        lu.assertEquals(only_in_a, {}, "Data in output that was not in input for: " .. filename)
+        lu.assertEquals(only_in_b, {}, "Data in input not processed for: " .. filename)
+        lu.assertEquals(similar, true)
+        --lu.assertEquals(b.mud_container:toData(), input_data)
     end
   end
 
