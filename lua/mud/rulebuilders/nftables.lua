@@ -74,8 +74,12 @@ local function aceToRules(ace_node)
             end
             -- TODO
             -- TODO
-          elseif match:getName() == 'tcp' then
-            rulematches = rulematches .. "tcp "
+          elseif match:getName() == 'tcp' or match:getName() == 'udp' then
+            if match:getName() == 'tcp' then
+              rulematches = rulematches .. "tcp "
+            else
+              rulematches = rulematches .. "udp "
+            end
             for j,match_node in pairs(match.yang_nodes) do
               if match_node:hasValue() then
                 if match_node:getName() == 'ietf-mud:direction-initiated' then

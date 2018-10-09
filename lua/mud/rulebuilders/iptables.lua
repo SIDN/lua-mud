@@ -33,8 +33,15 @@ end
 -- family_str, whether or not it actually resolves to an ip address
 local function replaceDNSNameNode(new_nodes, node, family_str, dnsname_str, network_source_or_dest, network_source_or_dest_v)
   local nd = node:toData()
-  if nd == nil then return false end
+  if nd == nil then
+    print("[XX] [replaceDNSNameNode] nd is nil")
+    return false
+  end
+  print("[XX] [replaceDNSNameNode]")
+  print("[XX] [replaceDNSNameNode] " .. json.encode(nd))
   if nd[family_str] and nd[family_str][dnsname_str] then
+    print("[XX] [replaceDNSNameNode] found one")
+    print("[XX] [replaceDNSNameNode]")
     local dnsname = nd[family_str][dnsname_str]
     local addrs = {}
     if family_str == 'ipv4' then
@@ -67,6 +74,9 @@ local function replaceDNSNameNode(new_nodes, node, family_str, dnsname_str, netw
       table.insert(new_nodes, nn)
     end
     return true
+  else
+    print("[XX] [replaceDNSNameNode] not for " .. family_str .. " and " .. dnsname_str)
+    print("[XX] [replaceDNSNameNode]")
   end
   return false
 end
@@ -80,12 +90,14 @@ local function ipMatchToRulePart(match_node, match)
     rulepart = rulepart .. "saddr " .. match_node:toData() .. " "
   elseif match_node:getName() == 'protocol' then
     -- this is done by virtue of it being an ipv6 option
-    if match_node:getValue() == 6 then
+    if match_node:getValue() == 1 then
+      rulepart = rulepart .. "-p icmp "
+    elseif match_node:getValue() == 6 then
       rulepart = rulepart .. "-p tcp "
     elseif match_node:getValue() == 17 then
       rulepart = rulepart .. "-p udp "
     else
-      error("Unsupport protocol value: " .. match_node:getValue())
+      error("Unsupported protocol value: " .. match_node:getValue())
     end
   elseif match_node:getName() == 'destination-port' then
     -- TODO: check operator and/or range
@@ -246,8 +258,11 @@ local function aceToRulesIPTables(ace_node, environment, environment_is_source, 
     -- note: do we have the action type correctly defined?
     local action = "<undefined action>"
     local action_d = ace:getParent():getNode('actions'):getNode('forwarding'):getValue()
-    if action_d == "accept" then
+    if action_d:lower() == "accept" then
       action = "-j ACCEPT"
+    else
+      print("[XX] PARENT ACTIONS NODE: " .. json.encode(ace:getParent():toData()))
+      print("Error: undefined action: " .. action_d)
     end
 
     local rule = cmd .. " " .. chain .. " " .. rulematches .. action

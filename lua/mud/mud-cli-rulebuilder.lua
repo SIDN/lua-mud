@@ -6,6 +6,7 @@ local lua_mud = require 'mud.mud'
 local lua_mud_environment = require 'mud.mud_environment'
 
 local iptables_rb = require("mud.rulebuilders.iptables")
+--local iptables_rb = require("mud.rulebuilders.nftables")
 
 local mud_cli = {}
 
@@ -13,10 +14,6 @@ local mud_cli = {}
 -- internal functions
 --
 function help(rcode, error_msg)
-  if error_msg ~= nil then
-    print("Error: " .. error_msg)
-    print("")
-  end
   print("Usage: lua-mud-cli-rulebuilder [options] <mudfile>")
   print("Reads <mudfile>, outputs iptables commands (work in progress)")
   print("")
@@ -75,7 +72,23 @@ function parse_args(args)
     end
   end
 
-  if mudfile == nil then help(1, "Missing argument: <mudfile>") end
+  local err = false
+
+  if mudfile == nil then
+    print("Error: Missing argument: <mudfile>")
+    err = true
+  end
+
+  if ipv4_address == nil then
+    print("Error: Missing IPv4 address.")
+    err = true
+  end
+  if ipv6_address == nil then
+    print("Error: Missing IPv6 address.")
+    err = true
+  end
+
+  if err then help(1, "") end
 
   return ipv4_address, ipv6_address, mac_address, network, mudfile, apply_rules, remove_rules, verbose
 end
@@ -95,7 +108,7 @@ function main(args)
   environment:setDeviceIPv6(ipv6_address)
   environment:setDeviceMac(mac)
   environment:setNetwork(network)
-  environment:print()
+  --environment:print()
   local rules = builder:build_rules(mud, environment, remove_rules)
   if verbose then
     for i, rule in pairs(rules) do
