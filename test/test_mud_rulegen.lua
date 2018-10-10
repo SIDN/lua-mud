@@ -24,7 +24,6 @@ TestMudRulegen = {} --class
   function TestMudRulegen:testMakeRules()
     builder = nftables_rb.create_rulebuilder()
     local rules = builder:build_rules(self.a, self.env)
-    -- hmz, order is undefined with dicts...
     local expect = {
       "nft add rule inet filter output ip6 tcp dport 443 daddr example.com accept",
       "nft add rule inet filter output ip6 tcp sport 443 saddr example.com accept"
@@ -38,21 +37,26 @@ TestMudRulegen = {} --class
     b:parseFile("../examples/example_from_mudmaker.json")
     builder = nftables_rb.create_rulebuilder()
     local rules = builder:build_rules(self.a, self.env)
-    for i,r in pairs(rules) do
-      print(r)
-    end
+    local expect = {
+      "nft add rule inet filter output ip6 tcp dport 443 daddr example.com accept",
+      "nft add rule inet filter output ip6 tcp sport 443 saddr example.com accept"
+    }
+
+    lu.assertEquals(rules, expect)
   end
 
   function TestMudRulegen:testIPTables()
     local b = mu.mud.create()
     b:parseFile("../examples/example_cloudservice.json")
+    local expect = {
+      "iptables -A FORWARD -s 192.0.2.2 -p tcp -d 178.18.82.80/32 --dport 443 -j ACCEPT",
+      "iptables -A FORWARD -d 192.0.2.2 -p tcp -s 178.18.82.80/32 --sport 443 -j ACCEPT"
+    }
 
     local rb = iptables_rb.create_rulebuilder()
     local rules = rb:build_rules(b, self.env)
     --local rules = rb:build_rules(self.a)
-    for i,r in pairs(rules) do
-      print("[XX] RULE: " .. r)
-    end
+    lu.assertEquals(rules, expect)
   end
 -- class testMud
 

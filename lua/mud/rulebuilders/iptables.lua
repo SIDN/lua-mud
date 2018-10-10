@@ -34,14 +34,9 @@ end
 local function replaceDNSNameNode(new_nodes, node, family_str, dnsname_str, network_source_or_dest, network_source_or_dest_v)
   local nd = node:toData()
   if nd == nil then
-    print("[XX] [replaceDNSNameNode] nd is nil")
     return false
   end
-  print("[XX] [replaceDNSNameNode]")
-  print("[XX] [replaceDNSNameNode] " .. json.encode(nd))
   if nd[family_str] and nd[family_str][dnsname_str] then
-    print("[XX] [replaceDNSNameNode] found one")
-    print("[XX] [replaceDNSNameNode]")
     local dnsname = nd[family_str][dnsname_str]
     local addrs = {}
     if family_str == 'ipv4' then
@@ -74,9 +69,6 @@ local function replaceDNSNameNode(new_nodes, node, family_str, dnsname_str, netw
       table.insert(new_nodes, nn)
     end
     return true
-  else
-    print("[XX] [replaceDNSNameNode] not for " .. family_str .. " and " .. dnsname_str)
-    print("[XX] [replaceDNSNameNode]")
   end
   return false
 end
