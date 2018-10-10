@@ -131,6 +131,27 @@ TestMudFileReader = {} --class
     end
   end
 
+  function TestMudFileReader:testParseBadMudFiles()
+    local files =
+      {
+       "testdata/bad_mudfile_undefineddata1.json",
+       "testdata/bad_mudfile_undefineddata2.json",
+       "testdata/bad_mudfile_undefineddata3.json"
+      }
+    local b = mu.mud.create()
+    for i,filename in pairs(files) do
+        local input_data = read_json_file(filename)
+        b.mud_container:clearData()
+        b:parseFile(filename)
+
+        local similar, only_in_a, only_in_b, different = data_diff(b.mud_container:toData(), input_data)
+        lu.assertEquals(different, {}, "Data different in input and output for: " .. filename)
+        lu.assertEquals(only_in_a, {}, "Data in output that was not in input for: " .. filename)
+        --lu.assertEquals(only_in_b, {}, "Data in input not processed for: " .. filename)
+        lu.assertEquals(similar, false)
+    end
+  end
+
   function TestMudFileReader:testUpdateData()
     
     local expected_1 = read_json_file("../examples/example_from_mudmaker.json")
